@@ -2,28 +2,25 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { auth } from '../config/firebase';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, GoogleAuthProvider, FacebookAuthProvider, signInWithCredential } from 'firebase/auth';
+import { signInWithEmailAndPassword, GoogleAuthProvider, FacebookAuthProvider, signInWithCredential } from 'firebase/auth';
 
 // Librerías de Expo para Login Social
 import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
 import * as Facebook from 'expo-auth-session/providers/facebook';
 
-// Esto le dice al navegador nativo que se cierre una vez que devuelva el token
 WebBrowser.maybeCompleteAuthSession();
 
-const LoginScreen = () => {
+const LoginScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
-  // 1. Configuración de Google
-  // Reemplaza 'TU_WEB_CLIENT_ID' con el ID de cliente web que te dio Firebase en la configuración de Google
+  // Configuración de Google
   const [googleRequest, googleResponse, googlePromptAsync] = Google.useIdTokenAuthRequest({
     clientId: '856721282484-qked104iulgeeti8007lakg1e0gp7d8s.apps.googleusercontent.com',
   });
 
-  // 2. Configuración de Facebook
-  // Reemplaza 'TU_APP_ID' con el ID de la aplicación de Meta for Developers
+  // Configuración de Facebook
   const [fbRequest, fbResponse, fbPromptAsync] = Facebook.useAuthRequest({
     clientId: '1538963127645703',
     scopes: ['public_profile'],
@@ -35,38 +32,49 @@ const LoginScreen = () => {
       const { id_token } = googleResponse.params;
       const credential = GoogleAuthProvider.credential(id_token);
       signInWithCredential(auth, credential)
-        .then(() => Alert.alert("Éxito", "Sesión iniciada con Google"))
+        .then(() => navigation.replace('Home'))
         .catch(error => Alert.alert("Error de Google", error.message));
     }
-  }, [googleResponse]);
+  }, [googleResponse, navigation]);
 
  // Escuchar la respuesta de Facebook
   useEffect(() => {
     if (fbResponse?.type === 'success') {
-      // Corrección: usamos accessToken con la T mayúscula
       const { accessToken } = fbResponse.authentication;
-      
-      // Agregamos una pequeña validación de seguridad extra
       if (accessToken) {
         const credential = FacebookAuthProvider.credential(accessToken);
         signInWithCredential(auth, credential)
-          .then(() => Alert.alert("Éxito", "Sesión iniciada con Facebook"))
+          .then(() => navigation.replace('Home'))
           .catch(error => Alert.alert("Error de Facebook", error.message));
       }
     }
-  }, [fbResponse]);
+  }, [fbResponse, navigation]);
 
-  // Funciones de Correo y Contraseña
+  // Función de Inicio de Sesión mejorada con alertas
   const handleLogin = () => {
-    signInWithEmailAndPassword(auth, email, password)
-      .then(() => Alert.alert("Bienvenido", "Inicio de sesión exitoso"))
-      .catch(error => Alert.alert("Error", "Revisa tus credenciales"));
-  };
+    // 1. Validar que no haya campos vacíos
+    if (!email || !password) {
+      Alert.alert("Campos vacíos", "Por favor, ingresa tu correo y contraseña.");
+      return;
+    }
 
-  const handleSignUp = () => {
-    createUserWithEmailAndPassword(auth, email, password)
-      .then(() => Alert.alert("Éxito", "Usuario registrado correctamente"))
-      .catch(error => Alert.alert("Error", error.message));
+    // 2. Intentar iniciar sesión
+    signInWithEmailAndPassword(auth, email, password)
+      .then(() => navigation.replace('Home'))
+      .catch(error => {
+        console.error("Error de Login:", error.code);
+        
+        // 3. Atrapar errores específicos y mostrarlos en español
+        if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+          Alert.alert("Acceso denegado", "El correo o la contraseña son incorrectos. Por favor, verifica tus datos.");
+        } else if (error.code === 'auth/invalid-email') {
+          Alert.alert("Correo inválido", "El formato del correo electrónico no es válido.");
+        } else if (error.code === 'auth/too-many-requests') {
+          Alert.alert("Demasiados intentos", "Has intentado iniciar sesión demasiadas veces. Intenta de nuevo más tarde.");
+        } else {
+          Alert.alert("Error", "Ocurrió un problema al iniciar sesión. Intenta más tarde.");
+        }
+      });
   };
 
   return (
@@ -79,6 +87,7 @@ const LoginScreen = () => {
         value={email}
         onChangeText={setEmail}
         autoCapitalize="none"
+        keyboardType="email-address" // Muestra el teclado con el @
       />
       
       <TextInput 
@@ -93,7 +102,7 @@ const LoginScreen = () => {
         <Text style={styles.buttonText}>Iniciar Sesión</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity onPress={handleSignUp}>
+      <TouchableOpacity onPress={() => navigation.navigate('Register')}>
         <Text style={styles.linkText}>¿No tienes cuenta? Regístrate</Text>
       </TouchableOpacity>
 
