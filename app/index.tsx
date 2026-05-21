@@ -8,6 +8,7 @@ import CreateEventScreen from '../src/screens/CreateEventScreen';
 import HomeScreen from '../src/screens/HomeScreen';
 import LoginScreen from '../src/screens/LoginScreen';
 import RegisterScreen from '../src/screens/RegisterScreen';
+import EventDetailsScreen from '../src/screens/EventDetailsScreen'; 
 
 const Stack = createNativeStackNavigator();
 
@@ -36,6 +37,7 @@ export default function App() {
         })} 
       />
       <Stack.Screen name="CreateEvent" component={CreateEventScreen} options={{ title: 'Crear Evento' }} />
+      <Stack.Screen name="EventDetails" component={EventDetailsScreen} options={{ title: 'Detalles del Evento' }} />
     </Stack.Navigator>
   );
 }
