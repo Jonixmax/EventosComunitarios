@@ -10,7 +10,7 @@ import {
   ActivityIndicator, 
   Alert, 
   SafeAreaView,
-  Platform // <-- Importación necesaria para detectar si estás en Web o Celular
+  Platform 
 } from 'react-native';
 import { db } from '../config/firebase';
 import { collection, addDoc } from 'firebase/firestore';
@@ -38,9 +38,20 @@ const CreateEventScreen = ({ navigation }) => {
     setFecha(fDate);
   };
 
+  // Función híbrida para mostrar alertas en Web y Móvil
+  const showAlert = (tituloAlerta, mensaje, onSuccess) => {
+    if (Platform.OS === 'web') {
+      alert(`${tituloAlerta}: ${mensaje}`);
+      if (onSuccess) onSuccess();
+    } else {
+      const botones = onSuccess ? [{ text: 'OK', onPress: onSuccess }] : [{ text: 'OK' }];
+      Alert.alert(tituloAlerta, mensaje, botones);
+    }
+  };
+
   const handleCreateEvent = async () => {
     if (!titulo.trim() || !fecha.trim() || !ubicacion.trim() || !descripcion.trim()) {
-      Alert.alert('Campos incompletos', 'Por favor, llena todos los campos antes de continuar.');
+      showAlert('Campos incompletos', 'Por favor, llena todos los campos antes de continuar.');
       return;
     }
 
@@ -56,13 +67,11 @@ const CreateEventScreen = ({ navigation }) => {
       });
 
       setLoading(false);
-      Alert.alert('¡Éxito!', 'El evento ha sido creado correctamente.', [
-        { text: 'OK', onPress: () => navigation.goBack() }
-      ]);
+      showAlert('¡Éxito!', 'El evento ha sido creado correctamente.', () => navigation.goBack());
     } catch (error) {
       setLoading(false);
       console.error("Error al guardar en Firebase: ", error);
-      Alert.alert('Error', 'No se pudo guardar el evento. Inténtalo de nuevo.');
+      showAlert('Error', 'No se pudo guardar el evento. Inténtalo de nuevo.');
     }
   };
 
@@ -86,7 +95,6 @@ const CreateEventScreen = ({ navigation }) => {
 
           <Text style={styles.label}>Fecha</Text>
           
-          {/* Lógica híbrida Web / Celular */}
           {Platform.OS === 'web' ? (
             <TextInput
               style={styles.input}
@@ -143,7 +151,7 @@ const CreateEventScreen = ({ navigation }) => {
           />
 
           <TouchableOpacity 
-            style={styles.submitButton} 
+            style={[styles.submitButton, loading && { backgroundColor: '#93C5FD' }]} 
             activeOpacity={0.8}
             onPress={handleCreateEvent}
             disabled={loading}
@@ -161,13 +169,19 @@ const CreateEventScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F7FA' },
-  scrollContainer: { paddingBottom: 30 },
-  header: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 10 },
+  container: { 
+    flex: 1, 
+    backgroundColor: '#F5F7FA',
+    width: '100%',
+    maxWidth: 600, // Mantiene el formulario centrado y estrecho
+    alignSelf: 'center' 
+  },
+  scrollContainer: { paddingBottom: 40, paddingTop: 20 },
+  header: { paddingHorizontal: 20, paddingBottom: 15 },
   title: { fontSize: 28, fontWeight: '800', color: '#2C3E50' },
-  subtitle: { fontSize: 15, color: '#7F8C8D', marginTop: 4, marginBottom: 10 },
+  subtitle: { fontSize: 15, color: '#7F8C8D', marginTop: 4 },
   formCard: {
-    backgroundColor: '#FFFFFF', borderRadius: 16, padding: 20, marginHorizontal: 20,
+    backgroundColor: '#FFFFFF', borderRadius: 16, padding: 24, marginHorizontal: 20,
     shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 3,
   },
   label: { fontSize: 14, fontWeight: '700', color: '#34495E', marginBottom: 8, marginTop: 12 },
@@ -177,7 +191,7 @@ const styles = StyleSheet.create({
   },
   textArea: { height: 100, textAlignVertical: 'top', paddingTop: 12 },
   submitButton: {
-    backgroundColor: '#4A90E2', borderRadius: 12, paddingVertical: 15, marginTop: 25,
+    backgroundColor: '#4A90E2', borderRadius: 12, paddingVertical: 15, marginTop: 30,
     alignItems: 'center', justifyContent: 'center',
     shadowColor: '#4A90E2', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 4,
   },

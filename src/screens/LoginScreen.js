@@ -143,11 +143,11 @@ const LoginScreen = ({ navigation }) => {
 
 const styles = StyleSheet.create({
   mainContainer: { flex: 1, backgroundColor: '#F3F4F6' },
-  scrollContainer: { flexGrow: 1, justifyContent: 'center', padding: 24 },
+  scrollContainer: { flexGrow: 1, justifyContent: 'center', padding: 24, width: '100%', maxWidth: 600, alignSelf: 'center' },
   headerContainer: { marginBottom: 32 },
   title: { fontSize: 32, fontWeight: '800', color: '#1F2937', marginBottom: 8 },
   subtitle: { fontSize: 16, color: '#6B7280', lineHeight: 24 },
-  card: { backgroundColor: '#FFFFFF', borderRadius: 24, padding: 24, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 12, elevation: 5, marginBottom: 24 },
+  card: { backgroundColor: '#FFFFFF', borderRadius: 24, padding: 24, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 12, elevation: 5, marginBottom: 24, width: '100%', maxWidth: 480, alignSelf: 'center' },
   input: { backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12, padding: 16, fontSize: 16, color: '#1F2937', marginBottom: 16 },
   primaryButton: { backgroundColor: '#2563EB', borderRadius: 12, paddingVertical: 16, alignItems: 'center', marginTop: 8, shadowColor: '#2563EB', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 4 },
   primaryButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
