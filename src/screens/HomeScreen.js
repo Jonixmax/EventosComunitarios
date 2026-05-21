@@ -72,16 +72,26 @@ const HomeScreen = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-          <View>
-            <Text style={styles.title}>Próximos Eventos</Text>
-            <Text style={styles.subtitle}>Descubre lo que pasa en tu comunidad</Text>
-          </View>
-          {/* Si tus compañeros dejaron un botón suelto, esto lo atrapa y hace que funcione */}
-          <TouchableOpacity onPress={handleSignOut} style={styles.logoutBtn}>
-            <Text style={styles.logoutText}>Salir</Text>
-          </TouchableOpacity>
+<View style={styles.header}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <View style={{ flex: 1 }}>
+                <Text style={styles.title}>Próximos Eventos</Text>
+                <Text style={styles.subtitle}>Descubre lo que pasa en tu comunidad</Text>
+            </View>
+            
+            {/* Nuevos botones agrupados */}
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <TouchableOpacity 
+                style={[styles.logoutBtn, { backgroundColor: '#DBEAFE', marginRight: 8 }]}
+                onPress={() => navigation.navigate('Profile')}
+              >
+                <Text style={[styles.logoutText, { color: '#2563EB' }]}>📊 Perfil</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity onPress={handleSignOut} style={styles.logoutBtn}>
+                  <Text style={styles.logoutText}>Salir</Text>
+              </TouchableOpacity>
+            </View>
         </View>
         {auth.currentUser && (
           <Text style={styles.userText}>Usuario: {auth.currentUser.displayName || auth.currentUser.email}</Text>
