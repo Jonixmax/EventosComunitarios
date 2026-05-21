@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, SafeAreaView, StyleSheet, Text, TouchableOpacity, View, Platform, Alert } from 'react-native';
 import { collection, onSnapshot, doc, deleteDoc } from 'firebase/firestore';
 import { signOut } from 'firebase/auth'; // <-- Importación necesaria para el botón de tus compañeros
-import { db, auth } from '../config/firebase'; 
+import { db, auth } from '../config/firebase';
 
 const HomeScreen = ({ navigation }) => {
   const [eventos, setEventos] = useState([]);
@@ -72,16 +72,26 @@ const HomeScreen = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-            <View>
+<View style={styles.header}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <View style={{ flex: 1 }}>
                 <Text style={styles.title}>Próximos Eventos</Text>
                 <Text style={styles.subtitle}>Descubre lo que pasa en tu comunidad</Text>
             </View>
-            {/* Si tus compañeros dejaron un botón suelto, esto lo atrapa y hace que funcione */}
-            <TouchableOpacity onPress={handleSignOut} style={styles.logoutBtn}>
-                <Text style={styles.logoutText}>Salir</Text>
-            </TouchableOpacity>
+            
+            {/* Nuevos botones agrupados */}
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <TouchableOpacity 
+                style={[styles.logoutBtn, { backgroundColor: '#DBEAFE', marginRight: 8 }]}
+                onPress={() => navigation.navigate('Profile')}
+              >
+                <Text style={[styles.logoutText, { color: '#2563EB' }]}>📊 Perfil</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity onPress={handleSignOut} style={styles.logoutBtn}>
+                  <Text style={styles.logoutText}>Salir</Text>
+              </TouchableOpacity>
+            </View>
         </View>
         {auth.currentUser && (
           <Text style={styles.userText}>Usuario: {auth.currentUser.displayName || auth.currentUser.email}</Text>
@@ -102,9 +112,9 @@ const HomeScreen = ({ navigation }) => {
         renderItem={({ item }) => (
           <View style={styles.card}>
             <View style={styles.cardHeader}>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={{ flex: 1 }}
-                onPress={() => navigation.navigate('EventDetails', { eventId: item.id })}
+                onPress={() => navigation.navigate('EventDetails', { event: item })}
               >
                 <Text style={styles.eventName} numberOfLines={1}>{item.titulo}</Text>
               </TouchableOpacity>
@@ -112,7 +122,7 @@ const HomeScreen = ({ navigation }) => {
                 <View style={styles.dateBadge}>
                   <Text style={styles.dateText}>{item.fecha}</Text>
                 </View>
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={styles.deleteButton}
                   onPress={() => confirmarEliminacion(item.id, item.titulo)}
                 >
@@ -120,7 +130,7 @@ const HomeScreen = ({ navigation }) => {
                 </TouchableOpacity>
               </View>
             </View>
-            
+
             <View style={styles.cardBody}>
               <Text style={styles.eventLocation}>📍 {item.ubicacion}</Text>
               <Text style={styles.eventDescription}>{item.descripcion}</Text>
@@ -129,8 +139,8 @@ const HomeScreen = ({ navigation }) => {
         )}
       />
 
-      <TouchableOpacity 
-        style={styles.fab} 
+      <TouchableOpacity
+        style={styles.fab}
         activeOpacity={0.8}
         onPress={() => navigation.navigate('CreateEvent')}
       >
