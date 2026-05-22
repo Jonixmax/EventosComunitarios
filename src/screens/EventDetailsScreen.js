@@ -1,12 +1,32 @@
 // src/screens/EventDetailsScreen.js
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, Alert, ActivityIndicator, TextInput, Share } from 'react-native';
-import { db, auth } from '../config/firebase';
-import { collection, addDoc, onSnapshot, query, orderBy, deleteDoc, doc, getDocs, where } from 'firebase/firestore';
+import {
+  addDoc,
+  collection,
+  deleteDoc,
+  doc,
+  getDocs,
+  onSnapshot,
+  query,
+  where,
+} from "firebase/firestore";
+import { useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  SafeAreaView,
+  ScrollView,
+  Share,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { auth, db } from "../config/firebase";
 
 export default function EventDetailsScreen({ route, navigation }) {
   const event = route.params?.event || {};
-  
+
   const { id, titulo, fecha, ubicacion, descripcion, creadorId } = event;
   const esCreador = auth.currentUser?.uid === creadorId;
 
@@ -14,11 +34,12 @@ export default function EventDetailsScreen({ route, navigation }) {
   const [participacionId, setParticipacionId] = useState(null);
   const [cargandoRSVP, setCargandoRSVP] = useState(true);
 
-  const [comentario, setComentario] = useState('');
+  const [comentario, setComentario] = useState("");
   const [calificacion, setCalificacion] = useState(5);
   const [listaComentarios, setListaComentarios] = useState([]);
   const [loadingComentario, setLoadingComentario] = useState(false);
 
+  // 1. Comprobar asistencia
   useEffect(() => {
     const comprobarAsistencia = async () => {
       try {
@@ -30,7 +51,7 @@ export default function EventDetailsScreen({ route, navigation }) {
         const q = query(
           collection(db, "participaciones"),
           where("eventoId", "==", id),
-          where("usuarioUid", "==", usuarioLogueado.uid)
+          where("usuarioUid", "==", usuarioLogueado.uid),
         );
         const querySnapshot = await getDocs(q);
         if (!querySnapshot.empty) {
@@ -46,13 +67,20 @@ export default function EventDetailsScreen({ route, navigation }) {
     comprobarAsistencia();
   }, [id]);
 
+  // 2. Cargar Comentarios (Con la corrección para las estadísticas del Perfil)
   useEffect(() => {
     if (!id) return;
-    const comentariosRef = collection(db, 'eventos', id, 'comentarios');
-    const q = query(comentariosRef, orderBy('fecha', 'desc'));
+
+    // Buscamos en la colección principal para que funcione el contador del Perfil
+    const q = query(collection(db, "comentarios"), where("eventoId", "==", id));
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const comentariosData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      const comentariosData = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      // Ordenamos localmente por fecha (del más nuevo al más viejo)
+      comentariosData.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
       setListaComentarios(comentariosData);
     });
     return () => unsubscribe();
@@ -62,7 +90,10 @@ export default function EventDetailsScreen({ route, navigation }) {
     try {
       const usuarioLogueado = auth.currentUser;
       if (!usuarioLogueado) {
-        Alert.alert("Atención", "Debes estar autenticado para modificar tu asistencia.");
+        Alert.alert(
+          "Atención",
+          "Debes estar autenticado para modificar tu asistencia.",
+        );
         return;
       }
       setCargandoRSVP(true);
@@ -70,7 +101,10 @@ export default function EventDetailsScreen({ route, navigation }) {
         await deleteDoc(doc(db, "participaciones", participacionId));
         setYaInscrito(false);
         setParticipacionId(null);
-        Alert.alert("Asistencia Cancelada", "Ya no estás registrado para este evento.");
+        Alert.alert(
+          "Asistencia Cancelada",
+          "Ya no estás registrado para este evento.",
+        );
       } else {
         const docRef = await addDoc(collection(db, "participaciones"), {
           eventoId: id,
@@ -81,7 +115,10 @@ export default function EventDetailsScreen({ route, navigation }) {
         });
         setYaInscrito(true);
         setParticipacionId(docRef.id);
-        Alert.alert("¡Inscripción Exitosa!", `Te has registrado para asistir a:\n${titulo}`);
+        Alert.alert(
+          "¡Inscripción Exitosa!",
+          `Te has registrado para asistir a:\n${titulo}`,
+        );
       }
     } catch (error) {
       Alert.alert("Error", "No se pudo procesar tu solicitud.");
@@ -102,44 +139,58 @@ export default function EventDetailsScreen({ route, navigation }) {
           onPress: async () => {
             try {
               await deleteDoc(doc(db, "eventos", id));
-              Alert.alert("Éxito", "El evento ha sido eliminado correctamente.");
+              Alert.alert(
+                "Éxito",
+                "El evento ha sido eliminado correctamente.",
+              );
               navigation.goBack();
             } catch (error) {
               Alert.alert("Error", "No se pudo eliminar el evento.");
             }
           },
         },
-      ]
+      ],
     );
   };
 
-  // NUEVA FUNCIÓN: Compartir el evento
   const handleShare = async () => {
     try {
       await Share.share({
         message: `¡Hola! Te invito al evento "${titulo}" 📅 el ${fecha} 📍 en ${ubicacion}. ¡Únete a nuestra comunidad!`,
       });
     } catch (error) {
-      Alert.alert("Error", "Ocurrió un problema al intentar compartir el evento.");
+      Alert.alert(
+        "Error",
+        "Ocurrió un problema al intentar compartir el evento.",
+      );
     }
   };
 
   const handleAddComment = async () => {
     if (!comentario.trim()) {
-      Alert.alert("Atención", "Por favor escribe un comentario antes de publicarlo.");
+      Alert.alert(
+        "Atención",
+        "Por favor escribe un comentario antes de publicarlo.",
+      );
       return;
     }
     setLoadingComentario(true);
     try {
-      const usuarioNombre = auth.currentUser?.displayName || auth.currentUser?.email || 'Usuario';
-      const comentariosRef = collection(db, 'eventos', id, 'comentarios');
+      const usuarioLogueado = auth.currentUser;
+      const usuarioNombre =
+        usuarioLogueado?.displayName || usuarioLogueado?.email || "Usuario";
+
+      // Guardamos en la colección principal para que cuente en las estadísticas
+      const comentariosRef = collection(db, "comentarios");
       await addDoc(comentariosRef, {
+        eventoId: id,
+        usuarioUid: usuarioLogueado.uid,
         nombre: usuarioNombre,
         texto: comentario.trim(),
         calificacion: calificacion,
-        fecha: new Date().toISOString()
+        fecha: new Date().toISOString(),
       });
-      setComentario('');
+      setComentario("");
       setCalificacion(5);
       setLoadingComentario(false);
     } catch (error) {
@@ -151,8 +202,19 @@ export default function EventDetailsScreen({ route, navigation }) {
   const renderStarsSelector = () => (
     <View style={styles.starsContainer}>
       {[1, 2, 3, 4, 5].map((star) => (
-        <TouchableOpacity key={star} onPress={() => setCalificacion(star)}>
-          <Text style={[styles.starIcon, { color: star <= calificacion ? '#F59E0B' : '#D1D5DB' }]}>★</Text>
+        <TouchableOpacity
+          key={star}
+          onPress={() => setCalificacion(star)}
+          style={{ padding: 5 }}
+        >
+          <Text
+            style={[
+              styles.starIcon,
+              { color: star <= calificacion ? "#F59E0B" : "#E5E7EB" },
+            ]}
+          >
+            ★
+          </Text>
         </TouchableOpacity>
       ))}
     </View>
@@ -161,8 +223,13 @@ export default function EventDetailsScreen({ route, navigation }) {
   if (!id) {
     return (
       <View style={styles.center}>
-        <Text style={styles.errorText}>No se pudo cargar la información del evento.</Text>
-        <TouchableOpacity style={styles.secondaryButton} onPress={() => navigation.goBack()}>
+        <Text style={styles.errorText}>
+          No se pudo cargar la información del evento.
+        </Text>
+        <TouchableOpacity
+          style={styles.secondaryButton}
+          onPress={() => navigation.goBack()}
+        >
           <Text style={styles.secondaryButtonText}>Volver al Inicio</Text>
         </TouchableOpacity>
       </View>
@@ -171,75 +238,104 @@ export default function EventDetailsScreen({ route, navigation }) {
 
   return (
     <SafeAreaView style={styles.mainContainer}>
-      <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
-
-        <View style={styles.card}>
-          <Text style={styles.title}>{titulo}</Text>
-
-          <View style={styles.infoRow}>
-            <View style={styles.iconContainer}><Text style={styles.icon}>📅</Text></View>
-            <View>
-              <Text style={styles.infoLabel}>Fecha del evento</Text>
-              <Text style={styles.infoValue}>{fecha}</Text>
-            </View>
+      <ScrollView
+        contentContainerStyle={styles.scrollContainer}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* HERO BANNER - Fondo azul superior */}
+        <View style={styles.heroBanner}>
+          <Text style={styles.heroTitle}>{titulo}</Text>
+          <View style={styles.heroActions}>
+            <TouchableOpacity style={styles.shareBadge} onPress={handleShare}>
+              <Text style={styles.shareBadgeText}>🔗 Compartir Evento</Text>
+            </TouchableOpacity>
           </View>
+        </View>
 
+        {/* TARJETA FLOTANTE DE INFORMACIÓN */}
+        <View style={styles.floatingInfoCard}>
           <View style={styles.infoRow}>
-            <View style={styles.iconContainer}><Text style={styles.icon}>📍</Text></View>
-            <View style={styles.infoValueContainer}>
-              <Text style={styles.infoLabel}>Ubicación</Text>
-              <Text style={styles.infoValue}>{ubicacion}</Text>
+            <View style={styles.iconBox}>
+              <Text style={styles.icon}>📅</Text>
+            </View>
+            <View style={styles.infoTextContainer}>
+              <Text style={styles.infoLabel}>Fecha</Text>
+              <Text style={styles.infoValue}>{fecha}</Text>
             </View>
           </View>
 
           <View style={styles.divider} />
 
-          <Text style={styles.sectionTitle}>Acerca de esta actividad</Text>
-          <Text style={styles.description}>{descripcion}</Text>
-
-          
-          {/* Fila de Botones: Asistencia, Compartir, Editar, Eliminar */}
-          <View style={styles.buttonsRow}>
-            <TouchableOpacity 
-              style={[styles.primaryButton, yaInscrito && { backgroundColor: '#EF4444' }]} 
-              activeOpacity={0.8} 
-              onPress={handleToggleParticipacion} 
-              disabled={cargandoRSVP}
-            >
-              {cargandoRSVP ? (
-                <ActivityIndicator color="#FFFFFF" />
-              ) : (
-                <Text style={styles.primaryButtonText}>
-                  {yaInscrito ? "Cancelar Asistencia" : "Confirmar Asistencia"}
-                </Text>
-              )}
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.shareButton} onPress={handleShare}>
-              <Text style={styles.shareButtonText}>Compartir</Text>
-            </TouchableOpacity>
-
-            {/* 👇 ¡AQUÍ ESTÁ LA MAGIA! Solo mostramos estos botones si es el creador 👇 */}
-            {esCreador && (
-              <>
-                <TouchableOpacity 
-                  style={[styles.deleteButton, { backgroundColor: '#FEF3C7', marginRight: 8 }]} 
-                  onPress={() => navigation.navigate('EditEvent', { event: event })}
-                >
-                  <Text style={{ fontSize: 16 }}>✏️</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity style={styles.deleteButton} onPress={handleEliminarEvento}>
-                  <Text style={styles.deleteButtonText}>🗑️</Text>
-                </TouchableOpacity>
-              </>
-            )}
+          <View style={styles.infoRow}>
+            <View style={styles.iconBox}>
+              <Text style={styles.icon}>📍</Text>
+            </View>
+            <View style={styles.infoTextContainer}>
+              <Text style={styles.infoLabel}>Ubicación</Text>
+              <Text style={styles.infoValue}>{ubicacion}</Text>
+            </View>
           </View>
         </View>
 
+        {/* BOTÓN DE ASISTENCIA PRINCIPAL */}
+        <TouchableOpacity
+          style={[styles.rsvpButton, yaInscrito && styles.rsvpButtonCancel]}
+          activeOpacity={0.8}
+          onPress={handleToggleParticipacion}
+          disabled={cargandoRSVP}
+        >
+          {cargandoRSVP ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <Text style={styles.rsvpButtonText}>
+              {yaInscrito
+                ? "✅ Asistencia Confirmada (Toca para cancelar)"
+                : "👋 ¡Quiero Asistir!"}
+            </Text>
+          )}
+        </TouchableOpacity>
+
+        {/* DESCRIPCIÓN */}
+        <View style={styles.sectionContainer}>
+          <Text style={styles.sectionTitle}>Acerca de esta actividad</Text>
+          <Text style={styles.descriptionText}>{descripcion}</Text>
+        </View>
+
+        {/* SECCIÓN DE ADMINISTRACIÓN (SOLO CREADOR) */}
+        {esCreador && (
+          <View style={styles.adminContainer}>
+            <Text style={styles.adminTitle}>Herramientas de Organizador</Text>
+            <View style={styles.adminButtonsRow}>
+              <TouchableOpacity
+                style={[
+                  styles.adminBtn,
+                  { backgroundColor: "#FEF3C7", marginRight: 10 },
+                ]}
+                onPress={() =>
+                  navigation.navigate("EditEvent", { event: event })
+                }
+              >
+                <Text style={[styles.adminBtnText, { color: "#D97706" }]}>
+                  ✏️ Editar Evento
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.adminBtn, { backgroundColor: "#FEE2E2" }]}
+                onPress={handleEliminarEvento}
+              >
+                <Text style={[styles.adminBtnText, { color: "#EF4444" }]}>
+                  🗑️ Eliminar
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+        {/* FORMULARIO DE COMENTARIOS */}
         <View style={styles.commentFormCard}>
           <Text style={styles.sectionTitle}>Deja tu opinión</Text>
-          <Text style={styles.infoLabel}>Califica este evento:</Text>
+          <Text style={styles.infoLabel}>¿Qué te pareció este evento?</Text>
           {renderStarsSelector()}
 
           <TextInput
@@ -252,73 +348,265 @@ export default function EventDetailsScreen({ route, navigation }) {
             onChangeText={setComentario}
           />
 
-          <TouchableOpacity style={styles.secondaryButton} onPress={handleAddComment} disabled={loadingComentario}>
-            {loadingComentario ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.secondaryButtonText}>Publicar Comentario</Text>}
+          <TouchableOpacity
+            style={styles.publishButton}
+            onPress={handleAddComment}
+            disabled={loadingComentario}
+          >
+            {loadingComentario ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={styles.publishButtonText}>Publicar Comentario</Text>
+            )}
           </TouchableOpacity>
         </View>
 
+        {/* LISTA DE COMENTARIOS */}
         <View style={styles.commentsListContainer}>
-          <Text style={styles.sectionTitle}>Comentarios ({listaComentarios.length})</Text>
+          <Text style={styles.sectionTitle}>
+            Comentarios ({listaComentarios.length})
+          </Text>
 
           {listaComentarios.length === 0 ? (
-            <Text style={styles.emptyCommentsText}>Aún no hay comentarios. ¡Sé el primero en opinar!</Text>
+            <View style={styles.emptyComments}>
+              <Text style={styles.emptyCommentsEmoji}>💬</Text>
+              <Text style={styles.emptyCommentsText}>
+                Sé el primero en opinar sobre este evento.
+              </Text>
+            </View>
           ) : (
             listaComentarios.map((item) => (
-              <View key={item.id} style={styles.commentItem}>
-                <View style={styles.commentHeader}>
-                  <Text style={styles.commentAuthor}>{item.nombre}</Text>
-                  <Text style={styles.commentStars}>
-                    {'★'.repeat(item.calificacion)}{'☆'.repeat(5 - item.calificacion)}
+              <View key={item.id} style={styles.commentBubble}>
+                <View style={styles.commentAvatar}>
+                  <Text style={styles.commentAvatarText}>
+                    {item.nombre.charAt(0).toUpperCase()}
                   </Text>
                 </View>
-                <Text style={styles.commentText}>{item.texto}</Text>
+                <View style={styles.commentContent}>
+                  <View style={styles.commentHeader}>
+                    <Text style={styles.commentAuthor}>{item.nombre}</Text>
+                    <Text style={styles.commentStars}>
+                      {"★".repeat(item.calificacion)}
+                      {"☆".repeat(5 - item.calificacion)}
+                    </Text>
+                  </View>
+                  <Text style={styles.commentText}>{item.texto}</Text>
+                </View>
               </View>
             ))
           )}
         </View>
-
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  mainContainer: { flex: 1, backgroundColor: '#F3F4F6' },
-  scrollContainer: { padding: 20 },
-  center: { flex: 1, justifyContent: "center", alignItems: "center", padding: 20 },
-  errorText: { fontSize: 16, color: "#EF4444", marginBottom: 20, textAlign: "center" },
-  card: { backgroundColor: '#FFFFFF', borderRadius: 20, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 3, marginBottom: 20 },
-  title: { fontSize: 24, fontWeight: '800', color: '#1F2937', marginBottom: 20 },
-  infoRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
-  iconContainer: { width: 40, height: 40, backgroundColor: '#EFF6FF', borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginRight: 15 },
-  icon: { fontSize: 18 },
-  infoLabel: { fontSize: 13, color: '#9CA3AF', fontWeight: '500', marginBottom: 2 },
-  infoValue: { fontSize: 15, color: '#374151', fontWeight: '700' },
-  infoValueContainer: { flex: 1 },
-  divider: { height: 1, backgroundColor: '#E5E7EB', marginVertical: 15 },
-  sectionTitle: { fontSize: 18, fontWeight: '700', color: '#1F2937', marginBottom: 10 },
-  description: { fontSize: 15, color: '#4B5563', lineHeight: 22, marginBottom: 20 },
+  mainContainer: { flex: 1, backgroundColor: "#F9FAFB" },
+  scrollContainer: { paddingBottom: 40 },
+  center: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  errorText: {
+    fontSize: 16,
+    color: "#EF4444",
+    marginBottom: 20,
+    textAlign: "center",
+  },
 
-  // Estilos actualizados para la fila de botones
-  buttonsRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 },
-  primaryButton: { flex: 1, backgroundColor: '#10B981', borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginRight: 8 },
-  primaryButtonText: { color: '#FFFFFF', fontSize: 14, fontWeight: '700', textAlign: 'center' },
-  shareButton: { backgroundColor: '#DBEAFE', borderRadius: 12, paddingVertical: 14, paddingHorizontal: 12, alignItems: 'center', marginRight: 8 },
-  shareButtonText: { color: '#2563EB', fontSize: 14, fontWeight: '700' },
-  deleteButton: { backgroundColor: '#FEE2E2', borderRadius: 12, paddingVertical: 14, paddingHorizontal: 15, alignItems: 'center', justifyContent: 'center' },
-  deleteButtonText: { color: '#EF4444', fontSize: 16 },
+  heroBanner: {
+    backgroundColor: "#3B82F6",
+    paddingHorizontal: 25,
+    paddingTop: 40,
+    paddingBottom: 60,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+  },
+  heroTitle: {
+    fontSize: 28,
+    fontWeight: "900",
+    color: "#FFFFFF",
+    marginBottom: 15,
+    lineHeight: 34,
+  },
+  heroActions: { flexDirection: "row" },
+  shareBadge: {
+    backgroundColor: "rgba(255,255,255,0.2)",
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+  },
+  shareBadgeText: { color: "#FFFFFF", fontWeight: "700", fontSize: 13 },
 
-  commentFormCard: { backgroundColor: '#FFFFFF', borderRadius: 20, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 3, marginBottom: 20 },
-  starsContainer: { flexDirection: 'row', marginVertical: 10 },
-  starIcon: { fontSize: 35, marginRight: 5 },
-  commentInput: { backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12, padding: 15, fontSize: 15, color: '#1F2937', height: 90, textAlignVertical: 'top', marginBottom: 15 },
-  secondaryButton: { backgroundColor: '#3B82F6', borderRadius: 12, paddingVertical: 12, alignItems: 'center', paddingHorizontal: 20 },
-  secondaryButtonText: { color: '#FFFFFF', fontSize: 15, fontWeight: '700' },
-  commentsListContainer: { paddingBottom: 20 },
-  emptyCommentsText: { color: '#6B7280', fontStyle: 'italic', marginTop: 10 },
-  commentItem: { backgroundColor: '#FFFFFF', padding: 15, borderRadius: 15, marginBottom: 10, borderWidth: 1, borderColor: '#F3F4F6' },
-  commentHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  commentAuthor: { fontWeight: '700', color: '#374151', fontSize: 15 },
-  commentStars: { color: '#F59E0B', fontSize: 14 },
-  commentText: { color: '#4B5563', fontSize: 14, lineHeight: 20 }
+  floatingInfoCard: {
+    backgroundColor: "#FFFFFF",
+    marginHorizontal: 20,
+    marginTop: -40,
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 5,
+    marginBottom: 20,
+  },
+  infoRow: { flexDirection: "row", alignItems: "center" },
+  iconBox: {
+    width: 44,
+    height: 44,
+    backgroundColor: "#EFF6FF",
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 15,
+  },
+  icon: { fontSize: 20 },
+  infoTextContainer: { flex: 1 },
+  infoLabel: {
+    fontSize: 13,
+    color: "#6B7280",
+    fontWeight: "500",
+    marginBottom: 2,
+  },
+  infoValue: { fontSize: 16, color: "#1F2937", fontWeight: "700" },
+  divider: { height: 1, backgroundColor: "#F3F4F6", marginVertical: 15 },
+
+  rsvpButton: {
+    marginHorizontal: 20,
+    backgroundColor: "#10B981",
+    borderRadius: 14,
+    paddingVertical: 16,
+    alignItems: "center",
+    shadowColor: "#10B981",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+    marginBottom: 25,
+  },
+  rsvpButtonCancel: { backgroundColor: "#EF4444", shadowColor: "#EF4444" },
+  rsvpButtonText: { color: "#FFFFFF", fontSize: 16, fontWeight: "800" },
+
+  sectionContainer: { paddingHorizontal: 25, marginBottom: 25 },
+  sectionTitle: {
+    fontSize: 19,
+    fontWeight: "800",
+    color: "#111827",
+    marginBottom: 10,
+  },
+  descriptionText: { fontSize: 15, color: "#4B5563", lineHeight: 24 },
+
+  adminContainer: {
+    marginHorizontal: 20,
+    backgroundColor: "#F9FAFB",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    borderRadius: 16,
+    padding: 15,
+    marginBottom: 25,
+  },
+  adminTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#6B7280",
+    marginBottom: 10,
+    textAlign: "center",
+  },
+  adminButtonsRow: { flexDirection: "row", justifyContent: "space-between" },
+  adminBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: "center",
+  },
+  adminBtnText: { fontWeight: "700", fontSize: 14 },
+
+  commentFormCard: {
+    backgroundColor: "#FFFFFF",
+    marginHorizontal: 20,
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
+    elevation: 2,
+    marginBottom: 25,
+    borderWidth: 1,
+    borderColor: "#F3F4F6",
+  },
+  starsContainer: { flexDirection: "row", marginVertical: 5, marginLeft: -5 },
+  starIcon: { fontSize: 32 },
+  commentInput: {
+    backgroundColor: "#F9FAFB",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    borderRadius: 12,
+    padding: 15,
+    fontSize: 15,
+    color: "#1F2937",
+    height: 100,
+    textAlignVertical: "top",
+    marginTop: 10,
+    marginBottom: 15,
+  },
+  publishButton: {
+    backgroundColor: "#3B82F6",
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: "center",
+  },
+  publishButtonText: { color: "#FFFFFF", fontSize: 15, fontWeight: "700" },
+
+  commentsListContainer: { paddingHorizontal: 20 },
+  emptyComments: {
+    alignItems: "center",
+    marginTop: 10,
+    padding: 20,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+  },
+  emptyCommentsEmoji: { fontSize: 30, marginBottom: 10 },
+  emptyCommentsText: {
+    color: "#6B7280",
+    textAlign: "center",
+    fontWeight: "500",
+  },
+
+  commentBubble: {
+    flexDirection: "row",
+    backgroundColor: "#FFFFFF",
+    padding: 16,
+    borderRadius: 16,
+    marginBottom: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  commentAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#DBEAFE",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+  },
+  commentAvatarText: { color: "#1D4ED8", fontWeight: "800", fontSize: 18 },
+  commentContent: { flex: 1 },
+  commentHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 4,
+  },
+  commentAuthor: { fontWeight: "700", color: "#111827", fontSize: 14 },
+  commentStars: { color: "#F59E0B", fontSize: 12 },
+  commentText: { color: "#4B5563", fontSize: 14, lineHeight: 20 },
 });

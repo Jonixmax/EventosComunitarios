@@ -1,13 +1,24 @@
 // src/screens/ProfileScreen.js
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, FlatList, ActivityIndicator } from 'react-native';
-import { db, auth } from '../config/firebase';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { signOut } from "firebase/auth";
+import { collection, getDocs, query, where } from "firebase/firestore";
+import { useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { auth, db } from "../config/firebase";
 
-export default function ProfileScreen() {
+export default function ProfileScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [misAsistencias, setMisAsistencias] = useState([]);
   const [totalEventos, setTotalEventos] = useState(0);
+  const [totalComentarios, setTotalComentarios] = useState(0);
 
   const usuarioLogueado = auth.currentUser;
 
@@ -16,26 +27,34 @@ export default function ProfileScreen() {
       if (!usuarioLogueado) return;
 
       try {
-        // 1. Buscamos el historial de inscripciones del usuario actual
+        // 1. Historial de inscripciones
         const qAsistencias = query(
-          collection(db, "participaciones"), 
-          where("usuarioUid", "==", usuarioLogueado.uid)
+          collection(db, "participaciones"),
+          where("usuarioUid", "==", usuarioLogueado.uid),
         );
         const snapshotAsistencias = await getDocs(qAsistencias);
-        
-        const historial = snapshotAsistencias.docs.map(doc => ({
+
+        const historial = snapshotAsistencias.docs.map((doc) => ({
           id: doc.id,
-          ...doc.data()
+          ...doc.data(),
         }));
-        
-        // Ordenamos para que los más recientes salgan arriba
-        historial.sort((a, b) => new Date(b.fechaRegistro) - new Date(a.fechaRegistro));
+
+        historial.sort(
+          (a, b) => new Date(b.fechaRegistro) - new Date(a.fechaRegistro),
+        );
         setMisAsistencias(historial);
 
-        // 2. Contamos cuántos eventos hay en total en la comunidad
+        // 2. Contador de Comentarios Realizados (Colección principal)
+        const qComentarios = query(
+          collection(db, "comentarios"),
+          where("usuarioUid", "==", usuarioLogueado.uid),
+        );
+        const snapshotComentarios = await getDocs(qComentarios);
+        setTotalComentarios(snapshotComentarios.size);
+
+        // 3. Total de eventos en la comunidad
         const snapshotEventos = await getDocs(collection(db, "eventos"));
         setTotalEventos(snapshotEventos.size);
-
       } catch (error) {
         console.error("Error al cargar estadísticas:", error);
       } finally {
@@ -46,58 +65,125 @@ export default function ProfileScreen() {
     cargarEstadisticas();
   }, []);
 
+  const handleCerrarSesion = async () => {
+    Alert.alert("Cerrar Sesión", "¿Estás seguro de que deseas salir?", [
+      { text: "Cancelar", style: "cancel" },
+      {
+        text: "Sí, salir",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await signOut(auth);
+            if (navigation) navigation.replace("Login");
+          } catch (error) {
+            console.error("Error al cerrar sesión", error);
+          }
+        },
+      },
+    ]);
+  };
+
   if (loading) {
     return (
       <View style={styles.center}>
         <ActivityIndicator size="large" color="#3B82F6" />
-        <Text style={styles.loadingText}>Cargando tus estadísticas...</Text>
+        <Text style={styles.loadingText}>Cargando tu perfil...</Text>
       </View>
     );
   }
 
   return (
     <SafeAreaView style={styles.mainContainer}>
-      {/* Cabecera del Perfil */}
-      <View style={styles.header}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>
-            {usuarioLogueado?.displayName ? usuarioLogueado.displayName.charAt(0).toUpperCase() : 'U'}
+      {/* CABECERA AZUL (HERO) */}
+      <View style={styles.headerBackground}>
+        <View style={styles.topBar}>
+          <Text style={styles.headerTitle}>Perfil</Text>
+          <TouchableOpacity
+            style={styles.logoutIconBtn}
+            onPress={handleCerrarSesion}
+          >
+            <Text style={styles.logoutIconText}>Salir 🚪</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.userInfoContainer}>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>
+              {usuarioLogueado?.displayName
+                ? usuarioLogueado.displayName.charAt(0).toUpperCase()
+                : "U"}
+            </Text>
+          </View>
+          <Text style={styles.userName}>
+            {usuarioLogueado?.displayName || "Usuario de la Comunidad"}
           </Text>
-        </View>
-        <Text style={styles.title}>Mi Perfil</Text>
-        <Text style={styles.subtitle}>{usuarioLogueado?.displayName || usuarioLogueado?.email}</Text>
-      </View>
-
-      {/* Tarjetas de Estadísticas (Dashboard) */}
-      <View style={styles.statsContainer}>
-        <View style={[styles.statCard, { borderTopColor: '#10B981', borderTopWidth: 4 }]}>
-          <Text style={styles.statNumber}>{misAsistencias.length}</Text>
-          <Text style={styles.statLabel}>Eventos Confirmados</Text>
-        </View>
-        
-        <View style={[styles.statCard, { borderTopColor: '#3B82F6', borderTopWidth: 4 }]}>
-          <Text style={styles.statNumber}>{totalEventos}</Text>
-          <Text style={styles.statLabel}>Eventos en la Comunidad</Text>
+          <Text style={styles.userEmail}>{usuarioLogueado?.email}</Text>
         </View>
       </View>
 
-      {/* Historial en Lista */}
+      {/* DASHBOARD FLOTANTE DE ESTADÍSTICAS */}
+      <View style={styles.floatingStatsCard}>
+        <View style={styles.statItem}>
+          <Text style={[styles.statNumber, { color: "#10B981" }]}>
+            {misAsistencias.length}
+          </Text>
+          <Text style={styles.statLabel}>Asistencias</Text>
+        </View>
+
+        <View style={styles.statDivider} />
+
+        <View style={styles.statItem}>
+          <Text style={[styles.statNumber, { color: "#F59E0B" }]}>
+            {totalComentarios}
+          </Text>
+          <Text style={styles.statLabel}>Comentarios</Text>
+        </View>
+
+        <View style={styles.statDivider} />
+
+        <View style={styles.statItem}>
+          <Text style={[styles.statNumber, { color: "#3B82F6" }]}>
+            {totalEventos}
+          </Text>
+          <Text style={styles.statLabel}>Eventos</Text>
+        </View>
+      </View>
+
+      {/* LISTA DE HISTORIAL */}
       <View style={styles.listContainer}>
         <Text style={styles.sectionTitle}>Historial de Participación</Text>
-        
+
         <FlatList
           data={misAsistencias}
           keyExtractor={(item) => item.id}
           showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 40 }}
           ListEmptyComponent={
-            <Text style={styles.emptyText}>Aún no tienes historial. ¡Confirma tu asistencia a un evento!</Text>
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyEmoji}>🎫</Text>
+              <Text style={styles.emptyTextTitle}>Sin historial</Text>
+              <Text style={styles.emptyTextSubtitle}>
+                Aún no te has registrado en ningún evento. ¡Explora la
+                comunidad!
+              </Text>
+            </View>
           }
           renderItem={({ item }) => (
             <View style={styles.historyCard}>
-              <Text style={styles.historyTitle}>🎟️ {item.eventoTitulo}</Text>
-              <Text style={styles.historyDate}>
-                Te registraste el: {new Date(item.fechaRegistro).toLocaleDateString()}
-              </Text>
+              <View style={styles.historyIconContainer}>
+                <Text style={styles.historyIcon}>🎟️</Text>
+              </View>
+              <View style={styles.historyContent}>
+                <Text style={styles.historyTitle} numberOfLines={1}>
+                  {item.eventoTitulo}
+                </Text>
+                <View style={styles.historyDateBadge}>
+                  <Text style={styles.historyDateText}>
+                    Registrado el:{" "}
+                    {new Date(item.fechaRegistro).toLocaleDateString()}
+                  </Text>
+                </View>
+              </View>
             </View>
           )}
         />
@@ -107,22 +193,168 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  mainContainer: { flex: 1, backgroundColor: '#F3F4F6' },
-  center: { flex: 1, justifyContent: "center", alignItems: "center" },
-  loadingText: { marginTop: 15, color: '#6B7280', fontSize: 16 },
-  header: { alignItems: 'center', paddingVertical: 30, backgroundColor: '#FFFFFF', borderBottomLeftRadius: 30, borderBottomRightRadius: 30, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 3 },
-  avatar: { width: 70, height: 70, borderRadius: 35, backgroundColor: '#DBEAFE', justifyContent: 'center', alignItems: 'center', marginBottom: 10 },
-  avatarText: { fontSize: 30, fontWeight: '800', color: '#2563EB' },
-  title: { fontSize: 24, fontWeight: '800', color: '#1F2937' },
-  subtitle: { fontSize: 15, color: '#6B7280', marginTop: 4 },
-  statsContainer: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 20, marginTop: -20 },
-  statCard: { flex: 0.48, backgroundColor: '#FFFFFF', padding: 20, borderRadius: 16, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 3 },
-  statNumber: { fontSize: 32, fontWeight: '800', color: '#1F2937' },
-  statLabel: { fontSize: 13, color: '#6B7280', marginTop: 5, textAlign: 'center', fontWeight: '500' },
-  listContainer: { flex: 1, paddingHorizontal: 20, paddingTop: 30 },
-  sectionTitle: { fontSize: 18, fontWeight: '700', color: '#1F2937', marginBottom: 15 },
-  emptyText: { color: '#9CA3AF', fontStyle: 'italic', textAlign: 'center', marginTop: 20 },
-  historyCard: { backgroundColor: '#FFFFFF', padding: 16, borderRadius: 12, marginBottom: 10, borderWidth: 1, borderColor: '#E5E7EB' },
-  historyTitle: { fontSize: 16, fontWeight: '700', color: '#374151', marginBottom: 5 },
-  historyDate: { fontSize: 13, color: '#9CA3AF' }
+  mainContainer: { flex: 1, backgroundColor: "#F9FAFB" },
+  center: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#F9FAFB",
+  },
+  loadingText: {
+    marginTop: 15,
+    color: "#6B7280",
+    fontSize: 16,
+    fontWeight: "500",
+  },
+
+  headerBackground: {
+    backgroundColor: "#3B82F6",
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 70,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+  },
+  topBar: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  headerTitle: { fontSize: 24, fontWeight: "900", color: "#FFFFFF" },
+  logoutIconBtn: {
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+  },
+  logoutIconText: { color: "#FFFFFF", fontWeight: "700", fontSize: 13 },
+
+  userInfoContainer: { alignItems: "center" },
+  avatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: "#FFFFFF",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  avatarText: { fontSize: 36, fontWeight: "900", color: "#3B82F6" },
+  userName: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: "#FFFFFF",
+    marginBottom: 4,
+  },
+  userEmail: { fontSize: 14, color: "#DBEAFE", fontWeight: "500" },
+
+  floatingStatsCard: {
+    flexDirection: "row",
+    backgroundColor: "#FFFFFF",
+    marginHorizontal: 20,
+    marginTop: -40,
+    borderRadius: 20,
+    paddingVertical: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.1,
+    shadowRadius: 15,
+    elevation: 6,
+    marginBottom: 25,
+  },
+  statItem: { flex: 1, alignItems: "center", justifyContent: "center" },
+  statNumber: { fontSize: 26, fontWeight: "900", marginBottom: 4 },
+  statLabel: {
+    fontSize: 12,
+    color: "#6B7280",
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  statDivider: {
+    width: 1,
+    backgroundColor: "#F3F4F6",
+    height: "80%",
+    alignSelf: "center",
+  },
+
+  listContainer: { flex: 1, paddingHorizontal: 20 },
+  sectionTitle: {
+    fontSize: 19,
+    fontWeight: "800",
+    color: "#111827",
+    marginBottom: 15,
+  },
+
+  emptyState: {
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 40,
+    padding: 20,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    borderStyle: "dashed",
+    borderWidth: 2,
+    borderColor: "#E5E7EB",
+  },
+  emptyEmoji: { fontSize: 40, marginBottom: 10 },
+  emptyTextTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#374151",
+    marginBottom: 6,
+  },
+  emptyTextSubtitle: {
+    fontSize: 14,
+    color: "#9CA3AF",
+    textAlign: "center",
+    lineHeight: 20,
+  },
+
+  historyCard: {
+    flexDirection: "row",
+    backgroundColor: "#FFFFFF",
+    padding: 15,
+    borderRadius: 16,
+    marginBottom: 12,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 5,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: "#F3F4F6",
+  },
+  historyIconContainer: {
+    width: 48,
+    height: 48,
+    backgroundColor: "#EFF6FF",
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 15,
+  },
+  historyIcon: { fontSize: 24 },
+  historyContent: { flex: 1 },
+  historyTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#1F2937",
+    marginBottom: 6,
+  },
+  historyDateBadge: {
+    alignSelf: "flex-start",
+    backgroundColor: "#F3F4F6",
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+  },
+  historyDateText: { fontSize: 12, color: "#4B5563", fontWeight: "600" },
 });
