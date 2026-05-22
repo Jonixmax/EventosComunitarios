@@ -6,7 +6,9 @@ import { collection, addDoc, onSnapshot, query, orderBy, deleteDoc, doc, getDocs
 
 export default function EventDetailsScreen({ route, navigation }) {
   const event = route.params?.event || {};
-  const { id, titulo, fecha, ubicacion, descripcion } = event;
+  
+  const { id, titulo, fecha, ubicacion, descripcion, creadorId } = event;
+  const esCreador = auth.currentUser?.uid === creadorId;
 
   const [yaInscrito, setYaInscrito] = useState(false);
   const [participacionId, setParticipacionId] = useState(null);
@@ -195,12 +197,13 @@ export default function EventDetailsScreen({ route, navigation }) {
           <Text style={styles.sectionTitle}>Acerca de esta actividad</Text>
           <Text style={styles.description}>{descripcion}</Text>
 
-          {/* Fila de Botones: Asistencia, Compartir, Eliminar */}
+          
+          {/* Fila de Botones: Asistencia, Compartir, Editar, Eliminar */}
           <View style={styles.buttonsRow}>
-            <TouchableOpacity
-              style={[styles.primaryButton, yaInscrito && { backgroundColor: '#EF4444' }]}
-              activeOpacity={0.8}
-              onPress={handleToggleParticipacion}
+            <TouchableOpacity 
+              style={[styles.primaryButton, yaInscrito && { backgroundColor: '#EF4444' }]} 
+              activeOpacity={0.8} 
+              onPress={handleToggleParticipacion} 
               disabled={cargandoRSVP}
             >
               {cargandoRSVP ? (
@@ -216,17 +219,21 @@ export default function EventDetailsScreen({ route, navigation }) {
               <Text style={styles.shareButtonText}>Compartir</Text>
             </TouchableOpacity>
 
-            {/* NUEVO BOTÓN DE EDITAR */}
-            <TouchableOpacity
-              style={[styles.deleteButton, { backgroundColor: '#FEF3C7', marginRight: 8 }]}
-              onPress={() => navigation.navigate('EditEvent', { event: event })}
-            >
-              <Text style={{ fontSize: 16 }}>✏️</Text>
-            </TouchableOpacity>
+            {/* 👇 ¡AQUÍ ESTÁ LA MAGIA! Solo mostramos estos botones si es el creador 👇 */}
+            {esCreador && (
+              <>
+                <TouchableOpacity 
+                  style={[styles.deleteButton, { backgroundColor: '#FEF3C7', marginRight: 8 }]} 
+                  onPress={() => navigation.navigate('EditEvent', { event: event })}
+                >
+                  <Text style={{ fontSize: 16 }}>✏️</Text>
+                </TouchableOpacity>
 
-            <TouchableOpacity style={styles.deleteButton} onPress={handleEliminarEvento}>
-              <Text style={styles.deleteButtonText}>🗑️</Text>
-            </TouchableOpacity>
+                <TouchableOpacity style={styles.deleteButton} onPress={handleEliminarEvento}>
+                  <Text style={styles.deleteButtonText}>🗑️</Text>
+                </TouchableOpacity>
+              </>
+            )}
           </View>
         </View>
 

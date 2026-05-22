@@ -118,16 +118,20 @@ const HomeScreen = ({ navigation }) => {
               >
                 <Text style={styles.eventName} numberOfLines={1}>{item.titulo}</Text>
               </TouchableOpacity>
-              <View style={styles.headerActions}>
+            <View style={styles.headerActions}>
                 <View style={styles.dateBadge}>
                   <Text style={styles.dateText}>{item.fecha}</Text>
                 </View>
-                <TouchableOpacity
-                  style={styles.deleteButton}
-                  onPress={() => confirmarEliminacion(item.id, item.titulo)}
-                >
-                  <Text style={styles.deleteButtonText}>Borrar</Text>
-                </TouchableOpacity>
+                
+                {/* 👇 Validamos que solo el creador vea el botón en la lista 👇 */}
+                {auth.currentUser?.uid === item.creadorId && (
+                  <TouchableOpacity 
+                    style={styles.deleteButton}
+                    onPress={() => confirmarEliminacion(item.id, item.titulo)}
+                  >
+                    <Text style={styles.deleteButtonText}>Borrar</Text>
+                  </TouchableOpacity>
+                )}
               </View>
             </View>
 
