@@ -50,12 +50,13 @@ const CreateEventScreen = ({ navigation }) => {
 
     try {
       // Estructura de guardado incluyendo verificación de usuario por seguridad
-      await addDoc(collection(db, "eventos"), {
-        titulo: titulo.trim(),
-        fecha: fecha.trim(),
-        ubicacion: ubicacion.trim(),
-        descripcion: descripcion.trim(),
-        createdBy: auth.currentUser ? auth.currentUser.uid : 'Anónimo',
+   await addDoc(collection(db, 'eventos'), {
+        titulo: titulo,
+        fecha: fecha,
+        ubicacion: ubicacion,
+        descripcion: descripcion,
+        
+        creadorId: auth.currentUser.uid, 
         createdAt: new Date(),
       });
 
