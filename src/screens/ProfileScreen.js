@@ -16,6 +16,7 @@ import {
 import { auth, db } from "../config/firebase";
 import { GoogleSignin } from '@react-native-google-signin/google-signin'; // <-- NUEVA IMPORTACIÓN
 
+
 export default function ProfileScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [misAsistencias, setMisAsistencias] = useState([]);
@@ -68,33 +69,38 @@ export default function ProfileScreen({ navigation }) {
   }, []);
 
 const handleCerrarSesion = async () => {
-    Alert.alert("Cerrar Sesión", "¿Estás seguro de que deseas salir?", [
-      { text: "Cancelar", style: "cancel" },
-      {
-        text: "Sí, salir",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            // 1. Si es nativo (Android/iOS), cerramos sesión de Google
-            if (Platform.OS !== "web") {
-              await GoogleSignin.signOut();
-            }
+  // Alert.alert no funciona en web — usamos una solución cross-platform
+  const confirmado =
+    Platform.OS === "web"
+      ? window.confirm("¿Estás seguro de que deseas salir?")
+      : await new Promise((resolve) =>
+          Alert.alert("Cerrar Sesión", "¿Estás seguro de que deseas salir?", [
+            { text: "Cancelar", style: "cancel", onPress: () => resolve(false) },
+            { text: "Sí, salir", style: "destructive", onPress: () => resolve(true) },
+          ])
+        );
 
-            // 2. Cerramos la sesión de Firebase Y ESPERAMOS a que termine
-            await signOut(auth);
+  if (!confirmado) return;
 
-            // 3. Solo después de que Firebase responda, navegamos
-            console.log("Sesión cerrada correctamente");
-            navigation.replace("Login");
-            
-          } catch (error) {
-            console.error("Error al cerrar sesión:", error);
-            Alert.alert("Error", "No se pudo cerrar sesión. Inténtalo de nuevo.");
-          }
-        },
-      },
-    ]);
-  };
+  try {
+    // Solo en nativo cargamos y usamos GoogleSignin
+    if (Platform.OS !== "web") {
+      const { GoogleSignin } = await import('@react-native-google-signin/google-signin');
+      await GoogleSignin.signOut();
+    }
+
+    await signOut(auth);
+    console.log("Sesión cerrada correctamente");
+    navigation.replace("Login");
+  } catch (error) {
+    console.error("Error al cerrar sesión:", error);
+    if (Platform.OS === "web") {
+      window.alert("No se pudo cerrar sesión. Inténtalo de nuevo.");
+    } else {
+      Alert.alert("Error", "No se pudo cerrar sesión. Inténtalo de nuevo.");
+    }
+  }
+};
 
   if (loading) {
     return (
