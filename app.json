@@ -20,8 +20,8 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.jonathan.eventoscomunitarios", 
-      "googleServicesFile": "./google-services.json" 
+      "package": "com.jonathan.eventoscomunitarios",
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "output": "static",
@@ -42,7 +42,16 @@
         }
       ],
       "expo-web-browser",
-      "@react-native-google-signin/google-signin"
+      "@react-native-google-signin/google-signin",
+      [
+        "react-native-fbsdk-next",
+        {
+          "appID": "1538963127645703",
+          "clientToken": "47a88c59a56bcbf96b6df44bdf10b9ab",
+          "displayName": "EventosComunitarios",
+          "scheme": "fb1538963127645703"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

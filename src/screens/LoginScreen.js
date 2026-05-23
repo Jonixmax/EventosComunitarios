@@ -1,8 +1,7 @@
 // src/screens/LoginScreen.js
-import * as Facebook from "expo-auth-session/providers/facebook";
 import * as WebBrowser from "expo-web-browser";
-import { makeRedirectUri } from "expo-auth-session";
-// 👇 Importamos la nueva librería nativa de Google 👇
+// 👇 Importamos la nueva librería nativa de Facebook 👇
+
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import {
   FacebookAuthProvider,
@@ -28,111 +27,38 @@ import { auth } from "../config/firebase";
 
 WebBrowser.maybeCompleteAuthSession();
 
-// 👇 Configuramos Google Sign-In (Afuera del componente) 👇
-// Usamos el Web Client ID porque Firebase lo necesita para generar el Token
-GoogleSignin.configure({
-  webClientId: "856721282484-qked104iulgeeti8007lakg1e0gp7d8s.apps.googleusercontent.com",
-});
-
 const LoginScreen = ({ navigation }) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [fbDiag, setFbDiag] = useState(null);
 
-  // ─── Redirect URI: usar proxy de Expo en nativo, vacío en web ────────────
-  const redirectUri = makeRedirectUri(
-    Platform.OS === 'web'
-      ? {}
-      : { useProxy: true }   // ← Expo Auth Proxy: siempre funciona en Expo Go
-  );
-
-  const [fbRequest, fbResponse, fbPromptAsync] = Facebook.useAuthRequest({
-    clientId: "1538963127645703",
-    scopes: ["public_profile", "email"],
-    redirectUri: Platform.OS !== 'web' ? redirectUri : undefined,
-  });
-
+  // Configuramos Google Sign-In
   useEffect(() => {
-    console.log("📌 [FB] Redirect URI calculado:", redirectUri);
-    console.log("📌 [FB] Platform:", Platform.OS);
-    console.log("📌 [FB] fbRequest listo:", !!fbRequest);
-  }, [fbRequest]);
-
-  // 🔍 Capturamos TODOS los estados de la respuesta de Facebook
-  useEffect(() => {
-    if (!fbResponse) return;
-
-    console.log("📬 [FB] Respuesta completa:", JSON.stringify(fbResponse, null, 2));
-
-    if (fbResponse.type === "success") {
-      const { accessToken } = fbResponse.authentication ?? {};
-      console.log("✅ [FB] accessToken recibido:", accessToken ? "SÍ" : "NO");
-      setFbDiag(`✅ Token OK\n${accessToken?.slice(0, 20)}...`);
-
-      if (accessToken) {
-        const credential = FacebookAuthProvider.credential(accessToken);
-        signInWithCredential(auth, credential)
-          .then(() => {
-            console.log("🎉 [FB] Firebase OK → navegando a Home");
-            navigation.replace("Home");
-          })
-          .catch((error) => {
-            console.error("❌ [FB] Error Firebase:", error.code, error.message);
-            setFbDiag(`❌ Firebase error\nCódigo: ${error.code}\n${error.message}`);
-            Alert.alert("Error de Facebook (Firebase)", `Código: ${error.code}\n\n${error.message}`);
-          });
-      } else {
-        const msg = "accessToken vino vacío aunque type=success";
-        console.warn("⚠️ [FB]", msg);
-        setFbDiag(`⚠️ ${msg}`);
-        Alert.alert("Error de Facebook", msg);
-      }
-
-    } else if (fbResponse.type === "error") {
-      const err = fbResponse.error;
-      console.error("❌ [FB] Error en auth-session:", JSON.stringify(err));
-      setFbDiag(`❌ Auth error\nCódigo: ${err?.code}\n${err?.message}`);
-      Alert.alert("Error de Facebook (auth-session)", `Código: ${err?.code}\n\n${err?.message}`);
-
-    } else if (fbResponse.type === "cancel") {
-      console.log("🚫 [FB] El usuario canceló el login");
-      setFbDiag("🚫 Cancelado por el usuario");
-
-    } else if (fbResponse.type === "dismiss") {
-      console.log("🚪 [FB] El browser fue cerrado (dismiss)");
-      setFbDiag("🚪 Ventana cerrada (dismiss)");
-
-    } else {
-      console.log("❓ [FB] Tipo de respuesta desconocido:", fbResponse.type);
-      setFbDiag(`❓ Tipo: ${fbResponse.type}`);
+    if (Platform.OS !== "web") {
+      GoogleSignin.configure({
+        webClientId: "856721282484-qked104iulgeeti8007lakg1e0gp7d8s.apps.googleusercontent.com",
+      });
     }
-  }, [fbResponse, navigation]);
-const handleGoogleLogin = async () => {
+  }, []);
+
+  // 🔴 FLUJO DE GOOGLE (Híbrido)
+  const handleGoogleLogin = async () => {
     try {
       if (Platform.OS === "web") {
-        // 🌐 --- FLUJO PARA LA WEB ---
         const provider = new GoogleAuthProvider();
         provider.setCustomParameters({ prompt: "select_account" });
         await signInWithPopup(auth, provider);
-        // Si todo sale bien, Firebase inicia sesión solo y redirigimos
         navigation.replace("Home");
-
       } else {
-        // 📱 --- FLUJO NATIVO PARA ANDROID/iOS ---
         await GoogleSignin.hasPlayServices();
         const userInfo = await GoogleSignin.signIn();
-        
-        // Buscamos el token en la estructura
         const idToken = userInfo.data?.idToken || userInfo.idToken;
 
         if (!idToken) {
           throw new Error("Google no devolvió un token de seguridad.");
         }
 
-        // Pasamos el Token a Firebase
         const credential = GoogleAuthProvider.credential(idToken);
         await signInWithCredential(auth, credential);
-        
         navigation.replace("Home");
       }
     } catch (error) {
@@ -141,6 +67,53 @@ const handleGoogleLogin = async () => {
     }
   };
 
+  
+// 🔵 FLUJO DE FACEBOOK (Híbrido Corregido)
+  const handleFacebookLogin = async () => {
+    try {
+      if (Platform.OS === "web") {
+        // 🌐 Web: Usar ventana emergente clásica
+        const provider = new FacebookAuthProvider();
+        provider.addScope('email');
+        provider.addScope('public_profile');
+        await signInWithPopup(auth, provider);
+        navigation.replace("Home");
+      } else {
+        // 📱 Nativo: Importamos la librería AQUÍ ADENTRO para que la Web no la vea
+        const { LoginManager, AccessToken } = require('react-native-fbsdk-next');
+
+        const result = await LoginManager.logInWithPermissions(['public_profile', 'email']);
+        
+        if (result.isCancelled) {
+          console.log("Login de Facebook cancelado por el usuario");
+          return;
+        }
+
+        const data = await AccessToken.getCurrentAccessToken();
+        if (!data) {
+          throw new Error("No se pudo obtener el token nativo de Facebook");
+        }
+
+        const credential = FacebookAuthProvider.credential(data.accessToken);
+        await signInWithCredential(auth, credential);
+        navigation.replace("Home");
+      }
+    } catch (error) {
+      console.log("Error de Facebook:", error);
+      
+      if (error.code === 'auth/account-exists-with-different-credential') {
+        Alert.alert(
+          "Cuenta duplicada",
+          "Ya tienes una cuenta con este correo registrada usando otro método (Google o Correo). Inicia sesión con ese método.",
+          [{ text: "Entendido" }]
+        );
+      } else {
+        Alert.alert("Error de Facebook", error.message || "Ocurrió un problema al conectar con Facebook.");
+      }
+    }
+  };
+
+  // ✉️ FLUJO DE CORREO Y CONTRASEÑA
   const handleLogin = () => {
     if (!email || !password) {
       Alert.alert("Campos vacíos", "Por favor, ingresa tu correo y contraseña.");
@@ -222,20 +195,8 @@ const handleGoogleLogin = async () => {
             <View style={styles.dividerLine} />
           </View>
 
-          {/* 🔍 Panel de Diagnóstico Facebook */}
-          {fbDiag && (
-            <View style={styles.diagBox}>
-              <Text style={styles.diagTitle}>🔍 Diagnóstico FB</Text>
-              <Text style={styles.diagText}>{fbDiag}</Text>
-              <TouchableOpacity onPress={() => setFbDiag(null)}>
-                <Text style={styles.diagClose}>Cerrar ✕</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-
           {/* Botones Sociales */}
           <View style={styles.socialContainer}>
-            {/* 👇 BOTÓN DE GOOGLE ACTUALIZADO 👇 */}
             <TouchableOpacity
               style={[styles.socialButton, { backgroundColor: "#FFFFFF", borderColor: "#E5E7EB" }]}
               onPress={handleGoogleLogin}
@@ -247,40 +208,7 @@ const handleGoogleLogin = async () => {
 
             <TouchableOpacity
               style={[styles.socialButton, { backgroundColor: "#1877F2", borderColor: "#1877F2" }]}
-              disabled={Platform.OS !== 'web' && !fbRequest}
-              onPress={async () => {
-                if (Platform.OS === 'web') {
-                  // 🌐 Web: usar popup igual que Google
-                  try {
-                    const provider = new FacebookAuthProvider();
-                    provider.addScope('email');
-                    provider.addScope('public_profile');
-                    await signInWithPopup(auth, provider);
-                    navigation.replace("Home");
-                  } catch (error) {
-                    console.error("❌ [FB Web]", error.code, error.message);
-                    if (error.code === 'auth/account-exists-with-different-credential') {
-                      setFbDiag(
-                        "⚠️ Ya existe una cuenta con ese email.\n\n" +
-                        "Iniciá sesión con Google o email/contraseña " +
-                        "usando el mismo correo de tu cuenta de Facebook."
-                      );
-                      Alert.alert(
-                        "Cuenta duplicada",
-                        "Ya tenés una cuenta con ese correo registrada con otro método " +
-                        "(Google o email). Iniciá sesión con ese método.",
-                        [{ text: "Entendido" }]
-                      );
-                    } else {
-                      setFbDiag(`❌ Web error\n${error.code}\n${error.message}`);
-                      Alert.alert("Error Facebook (web)", error.message);
-                    }
-                  }
-                } else {
-                  // 📱 Nativo: usar expo-auth-session
-                  fbPromptAsync();
-                }
-              }}
+              onPress={handleFacebookLogin}
               activeOpacity={0.7}
             >
               <Text style={styles.socialIcon}>🔵</Text>
@@ -327,11 +255,6 @@ const styles = StyleSheet.create({
   footerContainer: { flexDirection: "row", justifyContent: "center", alignItems: "center", marginTop: "auto" },
   footerText: { color: "#6B7280", fontSize: 15, fontWeight: "500" },
   footerLink: { color: "#3B82F6", fontSize: 15, fontWeight: "800" },
-  // 🔍 Estilos del panel de diagnóstico
-  diagBox: { backgroundColor: "#FEF3C7", borderWidth: 1.5, borderColor: "#F59E0B", borderRadius: 12, padding: 14, marginBottom: 20 },
-  diagTitle: { fontSize: 13, fontWeight: "800", color: "#92400E", marginBottom: 6 },
-  diagText: { fontSize: 12, color: "#78350F", fontFamily: "monospace", lineHeight: 18 },
-  diagClose: { marginTop: 8, fontSize: 12, color: "#B45309", fontWeight: "700", textAlign: "right" },
 });
 
 export default LoginScreen;
