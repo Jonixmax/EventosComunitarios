@@ -61,6 +61,7 @@ const handleGoogleLogin = async () => {
       if (Platform.OS === "web") {
         // 🌐 --- FLUJO PARA LA WEB ---
         const provider = new GoogleAuthProvider();
+        provider.setCustomParameters({ prompt: "select_account" });
         await signInWithPopup(auth, provider);
         // Si todo sale bien, Firebase inicia sesión solo y redirigimos
         navigation.replace("Home");
