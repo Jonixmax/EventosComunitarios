@@ -2,6 +2,7 @@
 import * as Facebook from "expo-auth-session/providers/facebook";
 import * as Google from "expo-auth-session/providers/google";
 import * as WebBrowser from "expo-web-browser";
+import { makeRedirectUri } from "expo-auth-session";
 import {
   FacebookAuthProvider,
   GoogleAuthProvider,
@@ -29,15 +30,21 @@ const LoginScreen = ({ navigation }) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
+  
+ // Configuración de Google (Modo Nativo Limpio)
   const [googleRequest, googleResponse, googlePromptAsync] =
     Google.useIdTokenAuthRequest({
-      clientId:
-        "856721282484-qked104iulgeeti8007lakg1e0gp7d8s.apps.googleusercontent.com",
+      webClientId: "856721282484-qked104iulgeeti8007lakg1e0gp7d8s.apps.googleusercontent.com",
+      // Usa el ID de Android que encontramos en tu archivo json:
+      androidClientId: "856721282484-393gncl87p7dakltb8fbtdg12nqb6rqr.apps.googleusercontent.com",
+      
+     
     });
-
+  // Configuración de Facebook (Modo Nativo)
   const [fbRequest, fbResponse, fbPromptAsync] = Facebook.useAuthRequest({
     clientId: "1538963127645703",
-    scopes: ["public_profile"],
+    scopes: ["public_profile", "email"],
+    redirectUri: makeRedirectUri({ scheme: 'eventoscomunitarios' }),
   });
 
   useEffect(() => {
@@ -66,7 +73,7 @@ const LoginScreen = ({ navigation }) => {
     if (!email || !password) {
       Alert.alert(
         "Campos vacíos",
-        "Por favor, ingresa tu correo y contraseña.",
+        "Por favor, ingresa tu correo y contraseña."
       );
       return;
     }
@@ -81,22 +88,22 @@ const LoginScreen = ({ navigation }) => {
         ) {
           Alert.alert(
             "Acceso denegado",
-            "El correo o la contraseña son incorrectos. Por favor, verifica tus datos.",
+            "El correo o la contraseña son incorrectos. Por favor, verifica tus datos."
           );
         } else if (error.code === "auth/invalid-email") {
           Alert.alert(
             "Correo inválido",
-            "El formato del correo electrónico no es válido.",
+            "El formato del correo electrónico no es válido."
           );
         } else if (error.code === "auth/too-many-requests") {
           Alert.alert(
             "Demasiados intentos",
-            "Has intentado iniciar sesión demasiadas veces. Intenta de nuevo más tarde.",
+            "Has intentado iniciar sesión demasiadas veces. Intenta de nuevo más tarde."
           );
         } else {
           Alert.alert(
             "Error",
-            "Ocurrió un problema al iniciar sesión. Intenta más tarde.",
+            "Ocurrió un problema al iniciar sesión. Intenta más tarde."
           );
         }
       });
