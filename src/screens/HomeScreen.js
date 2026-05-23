@@ -21,6 +21,7 @@ import {
   View,
 } from "react-native";
 import { auth, db } from "../config/firebase";
+import { GoogleSignin } from '@react-native-google-signin/google-signin'; // <-- NUEVA IMPORTACIÓN
 
 // Paleta de colores para darle vida a las tarjetas
 const CARD_COLORS = ["#3B82F6", "#10B981", "#F59E0B", "#8B5CF6", "#EC4899"];
@@ -32,31 +33,54 @@ const HomeScreen = ({ navigation }) => {
   const [misAsistencias, setMisAsistencias] = useState([]);
   const [notificaciones, setNotificaciones] = useState([]);
 
-  // 1. Cargar Eventos
+  // 👇 Agrega este useEffect para desactivar el encabezado nativo del navegador 👇
+  useEffect(() => {
+    navigation.setOptions({
+      headerShown: false, // Desactiva por completo la barra superior que contiene "Inicio" y el botón
+    });
+  }, [navigation]);
+
+ // 1. Cargar Eventos (Con manejo de errores para el Logout)
   useEffect(() => {
     const eventosRef = collection(db, "eventos");
-    const unsubscribe = onSnapshot(eventosRef, (snapshot) => {
-      const eventosData = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-      setEventos(eventosData);
-      setLoading(false);
-    });
+    const unsubscribe = onSnapshot(
+      eventosRef, 
+      (snapshot) => {
+        const eventosData = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setEventos(eventosData);
+        setLoading(false);
+      },
+      (error) => {
+        // 👇 Silenciamos el error si ocurre porque estamos cerrando sesión
+        if (error.code === 'permission-denied') return;
+        console.log("Error en eventos:", error);
+      }
+    );
     return () => unsubscribe();
   }, []);
 
-  // 2. Cargar mis asistencias en tiempo real
+  // 2. Cargar mis asistencias en tiempo real (Con manejo de errores para el Logout)
   useEffect(() => {
     if (!auth.currentUser) return;
     const q = query(
       collection(db, "participaciones"),
       where("usuarioUid", "==", auth.currentUser.uid),
     );
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const asistenciasData = snapshot.docs.map((doc) => doc.data().eventoId);
-      setMisAsistencias(asistenciasData);
-    });
+    const unsubscribe = onSnapshot(
+      q, 
+      (snapshot) => {
+        const asistenciasData = snapshot.docs.map((doc) => doc.data().eventoId);
+        setMisAsistencias(asistenciasData);
+      },
+      (error) => {
+        // 👇 Silenciamos el error si ocurre porque estamos cerrando sesión
+        if (error.code === 'permission-denied') return;
+        console.log("Error en asistencias:", error);
+      }
+    );
     return () => unsubscribe();
   }, []);
 
@@ -106,10 +130,24 @@ const HomeScreen = ({ navigation }) => {
     }
   };
 
-  const handleSignOut = () => {
-    signOut(auth)
-      .then(() => navigation.replace("Login"))
-      .catch((error) => console.log("Error al cerrar sesión:", error));
+const handleSignOut = async () => {
+    try {
+      // 1. Intentamos cerrar sesión en Google (silenciosamente)
+      try {
+        await GoogleSignin.signOut();
+      } catch (e) {
+        // Ignoramos si da error (significa que entró con Facebook o Correo)
+      }
+
+      // 2. Redirigimos al Login PRIMERO (así matamos la pantalla y sus escuchadores)
+      navigation.replace("Login");
+
+      // 3. Finalmente, cerramos Firebase en el fondo sin causar errores de permisos
+      await signOut(auth);
+      
+    } catch (error) {
+      console.log("Error al cerrar sesión:", error);
+    }
   };
 
   const confirmarEliminacion = (id, titulo) => {
@@ -159,7 +197,7 @@ const HomeScreen = ({ navigation }) => {
             <Text style={styles.subtitle}>Eventos en tu comunidad</Text>
           </View>
 
-          <View style={styles.actionButtonsContainer}>
+<View style={styles.actionButtonsContainer}>
             <TouchableOpacity
               style={styles.iconButton}
               onPress={abrirNotificaciones}
@@ -179,9 +217,7 @@ const HomeScreen = ({ navigation }) => {
               <Text style={styles.iconEmoji}>👤</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.logoutBtn} onPress={handleSignOut}>
-              <Text style={styles.logoutText}>Salir</Text>
-            </TouchableOpacity>
+            {/* 🗑️ El botón TouchableOpacity de "Salir" que se ubicaba aquí ha sido eliminado para limpiar la interfaz */}
           </View>
         </View>
 

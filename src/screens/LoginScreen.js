@@ -1,12 +1,15 @@
 // src/screens/LoginScreen.js
 import * as Facebook from "expo-auth-session/providers/facebook";
-import * as Google from "expo-auth-session/providers/google";
 import * as WebBrowser from "expo-web-browser";
+import { makeRedirectUri } from "expo-auth-session";
+// 👇 Importamos la nueva librería nativa de Google 👇
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import {
   FacebookAuthProvider,
   GoogleAuthProvider,
   signInWithCredential,
   signInWithEmailAndPassword,
+  signInWithPopup,
 } from "firebase/auth";
 import { useEffect, useState } from "react";
 import {
@@ -25,30 +28,22 @@ import { auth } from "../config/firebase";
 
 WebBrowser.maybeCompleteAuthSession();
 
+// 👇 Configuramos Google Sign-In (Afuera del componente) 👇
+// Usamos el Web Client ID porque Firebase lo necesita para generar el Token
+GoogleSignin.configure({
+  webClientId: "856721282484-qked104iulgeeti8007lakg1e0gp7d8s.apps.googleusercontent.com",
+});
+
 const LoginScreen = ({ navigation }) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  const [googleRequest, googleResponse, googlePromptAsync] =
-    Google.useIdTokenAuthRequest({
-      clientId:
-        "856721282484-qked104iulgeeti8007lakg1e0gp7d8s.apps.googleusercontent.com",
-    });
-
+  // Mantuvimos Facebook intacto por ahora
   const [fbRequest, fbResponse, fbPromptAsync] = Facebook.useAuthRequest({
     clientId: "1538963127645703",
-    scopes: ["public_profile"],
+    scopes: ["public_profile", "email"],
+    redirectUri: makeRedirectUri({ scheme: 'com.jonathan.eventoscomunitarios' }),
   });
-
-  useEffect(() => {
-    if (googleResponse?.type === "success") {
-      const { id_token } = googleResponse.params;
-      const credential = GoogleAuthProvider.credential(id_token);
-      signInWithCredential(auth, credential)
-        .then(() => navigation.replace("Home"))
-        .catch((error) => Alert.alert("Error de Google", error.message));
-    }
-  }, [googleResponse, navigation]);
 
   useEffect(() => {
     if (fbResponse?.type === "success") {
@@ -61,13 +56,42 @@ const LoginScreen = ({ navigation }) => {
       }
     }
   }, [fbResponse, navigation]);
+const handleGoogleLogin = async () => {
+    try {
+      if (Platform.OS === "web") {
+        // 🌐 --- FLUJO PARA LA WEB ---
+        const provider = new GoogleAuthProvider();
+        await signInWithPopup(auth, provider);
+        // Si todo sale bien, Firebase inicia sesión solo y redirigimos
+        navigation.replace("Home");
+
+      } else {
+        // 📱 --- FLUJO NATIVO PARA ANDROID/iOS ---
+        await GoogleSignin.hasPlayServices();
+        const userInfo = await GoogleSignin.signIn();
+        
+        // Buscamos el token en la estructura
+        const idToken = userInfo.data?.idToken || userInfo.idToken;
+
+        if (!idToken) {
+          throw new Error("Google no devolvió un token de seguridad.");
+        }
+
+        // Pasamos el Token a Firebase
+        const credential = GoogleAuthProvider.credential(idToken);
+        await signInWithCredential(auth, credential);
+        
+        navigation.replace("Home");
+      }
+    } catch (error) {
+      console.log("Error de Google:", error);
+      Alert.alert("Error de Google", error.message);
+    }
+  };
 
   const handleLogin = () => {
     if (!email || !password) {
-      Alert.alert(
-        "Campos vacíos",
-        "Por favor, ingresa tu correo y contraseña.",
-      );
+      Alert.alert("Campos vacíos", "Por favor, ingresa tu correo y contraseña.");
       return;
     }
 
@@ -79,25 +103,9 @@ const LoginScreen = ({ navigation }) => {
           error.code === "auth/user-not-found" ||
           error.code === "auth/wrong-password"
         ) {
-          Alert.alert(
-            "Acceso denegado",
-            "El correo o la contraseña son incorrectos. Por favor, verifica tus datos.",
-          );
-        } else if (error.code === "auth/invalid-email") {
-          Alert.alert(
-            "Correo inválido",
-            "El formato del correo electrónico no es válido.",
-          );
-        } else if (error.code === "auth/too-many-requests") {
-          Alert.alert(
-            "Demasiados intentos",
-            "Has intentado iniciar sesión demasiadas veces. Intenta de nuevo más tarde.",
-          );
+          Alert.alert("Acceso denegado", "El correo o la contraseña son incorrectos.");
         } else {
-          Alert.alert(
-            "Error",
-            "Ocurrió un problema al iniciar sesión. Intenta más tarde.",
-          );
+          Alert.alert("Error", "Ocurrió un problema al iniciar sesión.");
         }
       });
   };
@@ -108,10 +116,7 @@ const LoginScreen = ({ navigation }) => {
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
-        <ScrollView
-          contentContainerStyle={styles.scrollContainer}
-          showsVerticalScrollIndicator={false}
-        >
+        <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
           {/* Logo y Branding */}
           <View style={styles.brandContainer}>
             <View style={styles.logoCircle}>
@@ -123,9 +128,7 @@ const LoginScreen = ({ navigation }) => {
           {/* Encabezado */}
           <View style={styles.headerContainer}>
             <Text style={styles.title}>¡Hola de nuevo!</Text>
-            <Text style={styles.subtitle}>
-              Ingresa para descubrir y organizar los mejores eventos de tu zona.
-            </Text>
+            <Text style={styles.subtitle}>Ingresa para descubrir y organizar los mejores eventos de tu zona.</Text>
           </View>
 
           {/* Formulario */}
@@ -155,11 +158,7 @@ const LoginScreen = ({ navigation }) => {
               />
             </View>
 
-            <TouchableOpacity
-              style={styles.primaryButton}
-              onPress={handleLogin}
-              activeOpacity={0.8}
-            >
+            <TouchableOpacity style={styles.primaryButton} onPress={handleLogin} activeOpacity={0.8}>
               <Text style={styles.primaryButtonText}>Iniciar Sesión</Text>
             </TouchableOpacity>
           </View>
@@ -173,34 +172,24 @@ const LoginScreen = ({ navigation }) => {
 
           {/* Botones Sociales */}
           <View style={styles.socialContainer}>
+            {/* 👇 BOTÓN DE GOOGLE ACTUALIZADO 👇 */}
             <TouchableOpacity
-              style={[
-                styles.socialButton,
-                { backgroundColor: "#FFFFFF", borderColor: "#E5E7EB" },
-              ]}
-              disabled={!googleRequest}
-              onPress={() => googlePromptAsync()}
+              style={[styles.socialButton, { backgroundColor: "#FFFFFF", borderColor: "#E5E7EB" }]}
+              onPress={handleGoogleLogin}
               activeOpacity={0.7}
             >
               <Text style={styles.socialIcon}>🔴</Text>
-              <Text style={[styles.socialButtonText, { color: "#374151" }]}>
-                Google
-              </Text>
+              <Text style={[styles.socialButtonText, { color: "#374151" }]}>Google</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[
-                styles.socialButton,
-                { backgroundColor: "#1877F2", borderColor: "#1877F2" },
-              ]}
+              style={[styles.socialButton, { backgroundColor: "#1877F2", borderColor: "#1877F2" }]}
               disabled={!fbRequest}
               onPress={() => fbPromptAsync()}
               activeOpacity={0.7}
             >
               <Text style={styles.socialIcon}>🔵</Text>
-              <Text style={[styles.socialButtonText, { color: "#FFFFFF" }]}>
-                Facebook
-              </Text>
+              <Text style={[styles.socialButtonText, { color: "#FFFFFF" }]}>Facebook</Text>
             </TouchableOpacity>
           </View>
 
@@ -219,133 +208,30 @@ const LoginScreen = ({ navigation }) => {
 
 const styles = StyleSheet.create({
   mainContainer: { flex: 1, backgroundColor: "#FFFFFF" },
-  scrollContainer: {
-    flexGrow: 1,
-    justifyContent: "center",
-    paddingHorizontal: 30,
-    paddingVertical: 40,
-    width: "100%",
-    maxWidth: 500,
-    alignSelf: "center",
-  },
-
+  scrollContainer: { flexGrow: 1, justifyContent: "center", paddingHorizontal: 30, paddingVertical: 40, width: "100%", maxWidth: 500, alignSelf: "center" },
   brandContainer: { alignItems: "center", marginBottom: 40 },
-  logoCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: "#EFF6FF",
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 15,
-  },
+  logoCircle: { width: 80, height: 80, borderRadius: 40, backgroundColor: "#EFF6FF", justifyContent: "center", alignItems: "center", marginBottom: 15 },
   logoEmoji: { fontSize: 40 },
-  appName: {
-    fontSize: 20,
-    fontWeight: "800",
-    color: "#1D4ED8",
-    letterSpacing: 1,
-  },
-
+  appName: { fontSize: 20, fontWeight: "800", color: "#1D4ED8", letterSpacing: 1 },
   headerContainer: { marginBottom: 30 },
-  title: {
-    fontSize: 32,
-    fontWeight: "900",
-    color: "#111827",
-    marginBottom: 10,
-    letterSpacing: -0.5,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: "#6B7280",
-    lineHeight: 24,
-    fontWeight: "400",
-  },
-
+  title: { fontSize: 32, fontWeight: "900", color: "#111827", marginBottom: 10, letterSpacing: -0.5 },
+  subtitle: { fontSize: 16, color: "#6B7280", lineHeight: 24, fontWeight: "400" },
   formContainer: { width: "100%" },
-  inputWrapper: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#F9FAFB",
-    borderWidth: 1,
-    borderColor: "#F3F4F6",
-    borderRadius: 16,
-    marginBottom: 16,
-    paddingHorizontal: 15,
-  },
+  inputWrapper: { flexDirection: "row", alignItems: "center", backgroundColor: "#F9FAFB", borderWidth: 1, borderColor: "#F3F4F6", borderRadius: 16, marginBottom: 16, paddingHorizontal: 15 },
   inputIcon: { fontSize: 18, marginRight: 10 },
-  input: {
-    flex: 1,
-    paddingVertical: 18,
-    fontSize: 16,
-    color: "#1F2937",
-    fontWeight: "500",
-  },
-
-  forgotPasswordBtn: { alignSelf: "flex-end", marginBottom: 25 },
-  forgotPasswordText: { color: "#3B82F6", fontSize: 14, fontWeight: "600" },
-
-  primaryButton: {
-    backgroundColor: "#3B82F6",
-    borderRadius: 16,
-    paddingVertical: 18,
-    alignItems: "center",
-    shadowColor: "#3B82F6",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 5,
-  },
-  primaryButtonText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "800",
-    letterSpacing: 0.5,
-  },
-
-  dividerContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginVertical: 35,
-  },
+  input: { flex: 1, paddingVertical: 18, fontSize: 16, color: "#1F2937", fontWeight: "500" },
+  primaryButton: { backgroundColor: "#3B82F6", borderRadius: 16, paddingVertical: 18, alignItems: "center", shadowColor: "#3B82F6", shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 5 },
+  primaryButtonText: { color: "#FFFFFF", fontSize: 16, fontWeight: "800", letterSpacing: 0.5 },
+  dividerContainer: { flexDirection: "row", alignItems: "center", marginVertical: 35 },
   dividerLine: { flex: 1, height: 1, backgroundColor: "#E5E7EB" },
-  dividerText: {
-    marginHorizontal: 15,
-    color: "#9CA3AF",
-    fontSize: 14,
-    fontWeight: "500",
-  },
-
-  socialContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 40,
-  },
-  socialButton: {
-    flex: 0.48,
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 1,
-    borderRadius: 16,
-    paddingVertical: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 1,
-  },
+  dividerText: { marginHorizontal: 15, color: "#9CA3AF", fontSize: 14, fontWeight: "500" },
+  socialContainer: { flexDirection: "row", justifyContent: "space-between", marginBottom: 40 },
+  socialButton: { flex: 0.48, flexDirection: "row", justifyContent: "center", alignItems: "center", borderWidth: 1, borderRadius: 16, paddingVertical: 16, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 3, elevation: 1 },
   socialIcon: { fontSize: 18, marginRight: 8 },
   socialButtonText: { fontSize: 15, fontWeight: "700" },
-
-  footerContainer: {
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    marginTop: "auto",
-  },
+  footerContainer: { flexDirection: "row", justifyContent: "center", alignItems: "center", marginTop: "auto" },
   footerText: { color: "#6B7280", fontSize: 15, fontWeight: "500" },
-  footerLink: { color: "#3B82F6", fontSize: 15, fontWeight: "800" },
+  footerLink: { color: "#3B82F6", fontSize: 15, fontWeight: "800" }
 });
 
 export default LoginScreen;
