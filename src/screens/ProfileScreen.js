@@ -11,8 +11,10 @@ import {
   Text,
   TouchableOpacity,
   View,
+  Platform,
 } from "react-native";
 import { auth, db } from "../config/firebase";
+import { GoogleSignin } from '@react-native-google-signin/google-signin'; // <-- NUEVA IMPORTACIÓN
 
 export default function ProfileScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
@@ -65,7 +67,7 @@ export default function ProfileScreen({ navigation }) {
     cargarEstadisticas();
   }, []);
 
-  const handleCerrarSesion = async () => {
+const handleCerrarSesion = async () => {
     Alert.alert("Cerrar Sesión", "¿Estás seguro de que deseas salir?", [
       { text: "Cancelar", style: "cancel" },
       {
@@ -73,10 +75,21 @@ export default function ProfileScreen({ navigation }) {
         style: "destructive",
         onPress: async () => {
           try {
+            // 1. Si es nativo (Android/iOS), cerramos sesión de Google
+            if (Platform.OS !== "web") {
+              await GoogleSignin.signOut();
+            }
+
+            // 2. Cerramos la sesión de Firebase Y ESPERAMOS a que termine
             await signOut(auth);
-            if (navigation) navigation.replace("Login");
+
+            // 3. Solo después de que Firebase responda, navegamos
+            console.log("Sesión cerrada correctamente");
+            navigation.replace("Login");
+            
           } catch (error) {
-            console.error("Error al cerrar sesión", error);
+            console.error("Error al cerrar sesión:", error);
+            Alert.alert("Error", "No se pudo cerrar sesión. Inténtalo de nuevo.");
           }
         },
       },
