@@ -7,12 +7,14 @@ import {
   getDocs,
   onSnapshot,
   query,
+  updateDoc,
   where,
 } from "firebase/firestore";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Platform,
   SafeAreaView,
   ScrollView,
   Share,
@@ -30,16 +32,22 @@ export default function EventDetailsScreen({ route, navigation }) {
   const { id, titulo, fecha, ubicacion, descripcion, creadorId } = event;
   const esCreador = auth.currentUser?.uid === creadorId;
 
+  // Estado que verifica si el evento viene finalizado desde Firebase
+  const [isFinalizado, setIsFinalizado] = useState(
+    event.estado === "finalizado",
+  );
+
   const [yaInscrito, setYaInscrito] = useState(false);
   const [participacionId, setParticipacionId] = useState(null);
   const [cargandoRSVP, setCargandoRSVP] = useState(true);
+
+  const [totalParticipantes, setTotalParticipantes] = useState(0);
 
   const [comentario, setComentario] = useState("");
   const [calificacion, setCalificacion] = useState(5);
   const [listaComentarios, setListaComentarios] = useState([]);
   const [loadingComentario, setLoadingComentario] = useState(false);
 
-  // 1. Comprobar asistencia
   useEffect(() => {
     const comprobarAsistencia = async () => {
       try {
@@ -67,19 +75,26 @@ export default function EventDetailsScreen({ route, navigation }) {
     comprobarAsistencia();
   }, [id]);
 
-  // 2. Cargar Comentarios (Con la corrección para las estadísticas del Perfil)
   useEffect(() => {
     if (!id) return;
+    const qParticipantes = query(
+      collection(db, "participaciones"),
+      where("eventoId", "==", id),
+    );
+    const unsubscribe = onSnapshot(qParticipantes, (snapshot) => {
+      setTotalParticipantes(snapshot.size);
+    });
+    return () => unsubscribe();
+  }, [id]);
 
-    // Buscamos en la colección principal para que funcione el contador del Perfil
+  useEffect(() => {
+    if (!id) return;
     const q = query(collection(db, "comentarios"), where("eventoId", "==", id));
-
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const comentariosData = snapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
       }));
-      // Ordenamos localmente por fecha (del más nuevo al más viejo)
       comentariosData.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
       setListaComentarios(comentariosData);
     });
@@ -87,6 +102,9 @@ export default function EventDetailsScreen({ route, navigation }) {
   }, [id]);
 
   const handleToggleParticipacion = async () => {
+    // Si ya está finalizado, bloqueamos cualquier intento de ejecución
+    if (isFinalizado) return;
+
     try {
       const usuarioLogueado = auth.currentUser;
       if (!usuarioLogueado) {
@@ -127,36 +145,89 @@ export default function EventDetailsScreen({ route, navigation }) {
     }
   };
 
-  const handleEliminarEvento = () => {
-    Alert.alert(
-      "Eliminar Evento",
-      "¿Estás seguro de que deseas eliminar este evento permanentemente?",
-      [
-        { text: "Cancelar", style: "cancel" },
-        {
-          text: "Eliminar",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await deleteDoc(doc(db, "eventos", id));
-              Alert.alert(
-                "Éxito",
-                "El evento ha sido eliminado correctamente.",
-              );
-              navigation.goBack();
-            } catch (error) {
-              Alert.alert("Error", "No se pudo eliminar el evento.");
-            }
+  // Función interna para ejecutar el cambio en Firebase
+  const ejecutarFinalizar = async () => {
+    try {
+      // 1. Lo guardamos en Firebase
+      await updateDoc(doc(db, "eventos", id), { estado: "finalizado" });
+
+      // 2. Bloqueamos la pantalla al instante
+      setIsFinalizado(true);
+
+      // 3. Mostramos éxito
+      if (Platform.OS === "web") {
+        window.alert(
+          "El evento ha sido marcado como finalizado. Ya no se pueden inscribir más personas.",
+        );
+      } else {
+        Alert.alert("Éxito", "El evento ha sido marcado como finalizado.");
+      }
+    } catch (error) {
+      if (Platform.OS === "web")
+        window.alert("Error: No se pudo finalizar el evento.");
+      else Alert.alert("Error", "No se pudo finalizar el evento.");
+    }
+  };
+
+  const handleFinalizarEvento = () => {
+    // Validación para que el botón SÍ funcione en Web
+    if (Platform.OS === "web") {
+      const confirmar = window.confirm(
+        "¿Estás seguro de que deseas finalizar este evento? Ya no se permitirán nuevas inscripciones.",
+      );
+      if (confirmar) ejecutarFinalizar();
+    } else {
+      Alert.alert(
+        "Finalizar Evento",
+        "¿Estás seguro de que deseas finalizar este evento? Ya no se permitirán nuevas inscripciones.",
+        [
+          { text: "Cancelar", style: "cancel" },
+          {
+            text: "Sí, finalizar",
+            style: "destructive",
+            onPress: ejecutarFinalizar,
           },
-        },
-      ],
-    );
+        ],
+      );
+    }
+  };
+
+  const ejecutarEliminar = async () => {
+    try {
+      await deleteDoc(doc(db, "eventos", id));
+      if (Platform.OS === "web")
+        window.alert("El evento ha sido eliminado correctamente.");
+      else Alert.alert("Éxito", "El evento ha sido eliminado correctamente.");
+      navigation.goBack();
+    } catch (error) {
+      if (Platform.OS === "web")
+        window.alert("Error: No se pudo eliminar el evento.");
+      else Alert.alert("Error", "No se pudo eliminar el evento.");
+    }
+  };
+
+  const handleEliminarEvento = () => {
+    if (Platform.OS === "web") {
+      const confirmar = window.confirm(
+        "¿Estás seguro de que deseas eliminar este evento permanentemente?",
+      );
+      if (confirmar) ejecutarEliminar();
+    } else {
+      Alert.alert(
+        "Eliminar Evento",
+        "¿Estás seguro de que deseas eliminar este evento permanentemente?",
+        [
+          { text: "Cancelar", style: "cancel" },
+          { text: "Eliminar", style: "destructive", onPress: ejecutarEliminar },
+        ],
+      );
+    }
   };
 
   const handleShare = async () => {
     try {
       await Share.share({
-        message: `¡Hola! Te invito al evento "${titulo}" 📅 el ${fecha} 📍 en ${ubicacion}. ¡Únete a nuestra comunidad!`,
+        message: `¡Hola! Te invito al evento "${titulo}" 📅 el ${fecha} 📍 en ${ubicacion}. Ya somos ${totalParticipantes} confirmados. ¡Únete a nuestra comunidad!`,
       });
     } catch (error) {
       Alert.alert(
@@ -180,7 +251,6 @@ export default function EventDetailsScreen({ route, navigation }) {
       const usuarioNombre =
         usuarioLogueado?.displayName || usuarioLogueado?.email || "Usuario";
 
-      // Guardamos en la colección principal para que cuente en las estadísticas
       const comentariosRef = collection(db, "comentarios");
       await addDoc(comentariosRef, {
         eventoId: id,
@@ -242,18 +312,52 @@ export default function EventDetailsScreen({ route, navigation }) {
         contentContainerStyle={styles.scrollContainer}
         showsVerticalScrollIndicator={false}
       >
-        {/* HERO BANNER - Fondo azul superior */}
-        <View style={styles.heroBanner}>
+        {/* HERO BANNER */}
+        <View
+          style={[
+            styles.heroBanner,
+            isFinalizado && { backgroundColor: "#4B5563" },
+          ]}
+        >
           <Text style={styles.heroTitle}>{titulo}</Text>
           <View style={styles.heroActions}>
             <TouchableOpacity style={styles.shareBadge} onPress={handleShare}>
               <Text style={styles.shareBadgeText}>🔗 Compartir Evento</Text>
             </TouchableOpacity>
+            {isFinalizado && (
+              <View
+                style={[
+                  styles.shareBadge,
+                  { backgroundColor: "#EF4444", marginLeft: 10 },
+                ]}
+              >
+                <Text style={styles.shareBadgeText}>🔒 Finalizado</Text>
+              </View>
+            )}
           </View>
         </View>
 
-        {/* TARJETA FLOTANTE DE INFORMACIÓN */}
+        {/* TARJETA FLOTANTE */}
         <View style={styles.floatingInfoCard}>
+          <View style={styles.infoRow}>
+            <View style={styles.iconBox}>
+              <Text style={styles.icon}>{isFinalizado ? "🔴" : "🟢"}</Text>
+            </View>
+            <View style={styles.infoTextContainer}>
+              <Text style={styles.infoLabel}>Estado del Evento</Text>
+              <Text
+                style={[
+                  styles.infoValue,
+                  { color: isFinalizado ? "#EF4444" : "#10B981" },
+                ]}
+              >
+                {isFinalizado ? "Finalizado" : "En curso"}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.divider} />
+
           <View style={styles.infoRow}>
             <View style={styles.iconBox}>
               <Text style={styles.icon}>📅</Text>
@@ -275,33 +379,67 @@ export default function EventDetailsScreen({ route, navigation }) {
               <Text style={styles.infoValue}>{ubicacion}</Text>
             </View>
           </View>
+
+          <View style={styles.divider} />
+
+          <View style={styles.infoRow}>
+            <View style={styles.iconBox}>
+              <Text style={styles.icon}>👥</Text>
+            </View>
+            <View style={styles.infoTextContainer}>
+              <Text style={styles.infoLabel}>Participantes</Text>
+              <Text style={[styles.infoValue, { color: "#3B82F6" }]}>
+                {totalParticipantes}{" "}
+                {totalParticipantes === 1
+                  ? "persona inscrita"
+                  : "personas inscritas"}
+              </Text>
+            </View>
+          </View>
         </View>
 
-        {/* BOTÓN DE ASISTENCIA PRINCIPAL */}
-        <TouchableOpacity
-          style={[styles.rsvpButton, yaInscrito && styles.rsvpButtonCancel]}
-          activeOpacity={0.8}
-          onPress={handleToggleParticipacion}
-          disabled={cargandoRSVP}
-        >
-          {cargandoRSVP ? (
-            <ActivityIndicator color="#FFFFFF" />
-          ) : (
-            <Text style={styles.rsvpButtonText}>
-              {yaInscrito
-                ? "✅ Asistencia Confirmada (Toca para cancelar)"
-                : "👋 ¡Quiero Asistir!"}
+        {/* BOTÓN DE ASISTENCIA: SI ESTÁ FINALIZADO SE DESHABILITA Y SE VE GRIS */}
+        {isFinalizado ? (
+          <View
+            style={[
+              styles.rsvpButton,
+              {
+                backgroundColor: "#F3F4F6",
+                shadowOpacity: 0,
+                borderWidth: 1,
+                borderColor: "#E5E7EB",
+              },
+            ]}
+          >
+            <Text style={[styles.rsvpButtonText, { color: "#9CA3AF" }]}>
+              🚫 Las inscripciones han cerrado
             </Text>
-          )}
-        </TouchableOpacity>
+          </View>
+        ) : (
+          <TouchableOpacity
+            style={[styles.rsvpButton, yaInscrito && styles.rsvpButtonCancel]}
+            activeOpacity={0.8}
+            onPress={handleToggleParticipacion}
+            disabled={cargandoRSVP}
+          >
+            {cargandoRSVP ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={styles.rsvpButtonText}>
+                {yaInscrito
+                  ? "✅ Asistencia Confirmada (Toca para cancelar)"
+                  : "👋 ¡Quiero Asistir!"}
+              </Text>
+            )}
+          </TouchableOpacity>
+        )}
 
-        {/* DESCRIPCIÓN */}
         <View style={styles.sectionContainer}>
           <Text style={styles.sectionTitle}>Acerca de esta actividad</Text>
           <Text style={styles.descriptionText}>{descripcion}</Text>
         </View>
 
-        {/* SECCIÓN DE ADMINISTRACIÓN (SOLO CREADOR) */}
+        {/* HERRAMIENTAS DE ORGANIZADOR */}
         {esCreador && (
           <View style={styles.adminContainer}>
             <Text style={styles.adminTitle}>Herramientas de Organizador</Text>
@@ -316,7 +454,7 @@ export default function EventDetailsScreen({ route, navigation }) {
                 }
               >
                 <Text style={[styles.adminBtnText, { color: "#D97706" }]}>
-                  ✏️ Editar Evento
+                  ✏️ Editar
                 </Text>
               </TouchableOpacity>
 
@@ -329,6 +467,16 @@ export default function EventDetailsScreen({ route, navigation }) {
                 </Text>
               </TouchableOpacity>
             </View>
+
+            {/* Solo se muestra si el evento NO está finalizado */}
+            {!isFinalizado && (
+              <TouchableOpacity
+                style={styles.finalizeBtn}
+                onPress={handleFinalizarEvento}
+              >
+                <Text style={styles.finalizeBtnText}>🏁 Finalizar Evento</Text>
+              </TouchableOpacity>
+            )}
           </View>
         )}
 
@@ -361,7 +509,7 @@ export default function EventDetailsScreen({ route, navigation }) {
           </TouchableOpacity>
         </View>
 
-        {/* LISTA DE COMENTARIOS */}
+        {/* COMENTARIOS */}
         <View style={styles.commentsListContainer}>
           <Text style={styles.sectionTitle}>
             Comentarios ({listaComentarios.length})
@@ -432,7 +580,7 @@ const styles = StyleSheet.create({
     marginBottom: 15,
     lineHeight: 34,
   },
-  heroActions: { flexDirection: "row" },
+  heroActions: { flexDirection: "row", alignItems: "center" },
   shareBadge: {
     backgroundColor: "rgba(255,255,255,0.2)",
     paddingVertical: 6,
@@ -513,10 +661,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "700",
     color: "#6B7280",
-    marginBottom: 10,
+    marginBottom: 15,
     textAlign: "center",
   },
-  adminButtonsRow: { flexDirection: "row", justifyContent: "space-between" },
+  adminButtonsRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 10,
+  },
   adminBtn: {
     flex: 1,
     paddingVertical: 12,
@@ -524,6 +676,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   adminBtnText: { fontWeight: "700", fontSize: 14 },
+
+  finalizeBtn: {
+    backgroundColor: "#4B5563",
+    paddingVertical: 14,
+    borderRadius: 10,
+    alignItems: "center",
+    marginTop: 5,
+  },
+  finalizeBtnText: { color: "#FFFFFF", fontWeight: "700", fontSize: 14 },
 
   commentFormCard: {
     backgroundColor: "#FFFFFF",
