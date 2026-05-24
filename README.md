@@ -1,56 +1,201 @@
-# Welcome to your Expo app 👋
+# 📅 Eventos Comunitarios
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+<p align="center">
+  <img src="https://img.shields.io/badge/React%20Native-0.81.5-61DAFB?style=for-the-badge&logo=react&logoColor=white" />
+  <img src="https://img.shields.io/badge/Expo-54.0-000020?style=for-the-badge&logo=expo&logoColor=white" />
+  <img src="https://img.shields.io/badge/Firebase-12.13-FFCA28?style=for-the-badge&logo=firebase&logoColor=black" />
+  <img src="https://img.shields.io/badge/TypeScript-5.9-3178C6?style=for-the-badge&logo=typescript&logoColor=white" />
+  <img src="https://img.shields.io/badge/Licencia-CC%20BY--NC%204.0-lightgrey?style=for-the-badge" />
+</p>
 
-## Get started
+<p align="center">
+  Aplicación móvil para descubrir, crear y gestionar eventos comunitarios. Desarrollada con React Native + Expo y respaldada por Firebase en tiempo real.
+</p>
 
-1. Install dependencies
+---
 
-   ```bash
-   npm install
-   ```
+## 📋 Tabla de Contenidos
 
-2. Start the app
+- [Descripción](#-descripción)
+- [Características](#-características)
+- [Tecnologías](#-tecnologías)
+- [Estructura del Proyecto](#-estructura-del-proyecto)
+- [Instalación y Configuración](#-instalación-y-configuración)
+- [Uso](#-uso)
+- [Autores](#-autores)
+- [Licencia](#-licencia)
 
-   ```bash
-   npx expo start
-   ```
+---
 
-In the output, you'll find options to open the app in a
+## 📖 Descripción
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+**Eventos Comunitarios** es una aplicación móvil multiplataforma (Android, iOS y Web) que permite a los usuarios de una comunidad explorar eventos cercanos, registrar su asistencia, crear sus propios eventos y recibir recordatorios automáticos. La aplicación se conecta a Firebase para autenticación de usuarios y almacenamiento de datos en tiempo real.
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+---
 
-## Get a fresh project
+## ✨ Características
 
-When you're ready, run:
+- 🔐 **Autenticación múltiple** — Inicio de sesión con correo/contraseña, Google y Facebook.
+- 📋 **Listado de eventos en tiempo real** — Tarjetas con título, descripción, fecha y ubicación actualizadas al instante mediante Firestore.
+- ➕ **Creación de eventos** — Formulario completo con selector de fecha nativo (DateTimePicker).
+- ✏️ **Edición y eliminación** — El creador del evento puede modificarlo o eliminarlo con confirmación.
+- 👀 **Detalle de evento** — Vista completa con descripción, fecha, ubicación y opción de marcar asistencia.
+- 🔔 **Notificaciones en app** — Recordatorio automático de eventos programados para hoy o mañana en los que el usuario confirmó asistencia.
+- 👤 **Perfil de usuario** — Pantalla con datos del usuario autenticado y opción de cerrar sesión.
+- 📱 **Soporte multiplataforma** — Android, iOS y Web desde una sola base de código.
 
-```bash
-npm run reset-project
+---
+
+## 🛠️ Tecnologías
+
+| Tecnología | Versión | Uso |
+|---|---|---|
+| React Native | 0.81.5 | Framework principal de UI |
+| Expo | ~54.0 | Herramientas de desarrollo y build |
+| Expo Router | ~6.0 | Navegación basada en archivos |
+| Firebase Auth | 12.13 | Autenticación de usuarios |
+| Cloud Firestore | 12.13 | Base de datos en tiempo real |
+| React Navigation | 7.x | Navegación entre pantallas |
+| Google Sign-In | 16.1 | Autenticación con Google (nativa) |
+| React Native FBSDK | 13.4 | Autenticación con Facebook |
+| DateTimePicker | 9.1 | Selector de fecha nativo |
+| TypeScript | ~5.9 | Tipado estático |
+
+---
+
+## 📁 Estructura del Proyecto
+
+```
+EventosComunitarios/
+├── app/
+│   ├── _layout.tsx          # Layout raíz de la aplicación (Expo Router)
+│   └── index.tsx            # Punto de entrada
+├── src/
+│   ├── config/
+│   │   └── firebase.js      # Inicialización y exportación de Firebase (auth, db)
+│   └── screens/
+│       ├── LoginScreen.js       # Pantalla de inicio de sesión
+│       ├── RegisterScreen.js    # Pantalla de registro de usuario
+│       ├── HomeScreen.js        # Listado principal de eventos
+│       ├── CreateEventScreen.js # Formulario de creación de evento
+│       ├── EditEventScreen.js   # Formulario de edición de evento
+│       ├── EventDetailsScreen.js# Detalle de evento y asistencia
+│       └── ProfileScreen.js     # Perfil del usuario autenticado
+├── assets/
+│   └── images/              # Íconos y recursos gráficos
+├── app.json                 # Configuración de la app Expo
+├── google-services.json     # Configuración de Firebase para Android
+├── package.json
+└── tsconfig.json
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+---
 
-## Learn more
+## 🚀 Instalación y Configuración
 
-To learn more about developing your project with Expo, look at the following resources:
+### Requisitos previos
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+- [Node.js](https://nodejs.org/) v18 o superior
+- [Expo CLI](https://docs.expo.dev/get-started/installation/) instalado globalmente
+- Cuenta de [Firebase](https://firebase.google.com/) con proyecto activo
+- (Opcional) Android Studio o Xcode para emuladores nativos
 
-## Licencia
+### Pasos
+
+**1. Clonar el repositorio**
+
+```bash
+git clone https://github.com/Jonixmax/EventosComunitarios.git
+cd EventosComunitarios
+```
+
+**2. Instalar dependencias**
+
+```bash
+npm install
+```
+
+**3. Configurar Firebase**
+
+Edita el archivo `src/config/firebase.js` con las credenciales de tu propio proyecto Firebase:
+
+```js
+const firebaseConfig = {
+  apiKey: "TU_API_KEY",
+  authDomain: "TU_AUTH_DOMAIN",
+  projectId: "TU_PROJECT_ID",
+  storageBucket: "TU_STORAGE_BUCKET",
+  messagingSenderId: "TU_MESSAGING_SENDER_ID",
+  appId: "TU_APP_ID"
+};
+```
+
+> ⚠️ Asegúrate de habilitar **Email/Password**, **Google** y **Facebook** como proveedores de autenticación en la consola de Firebase.
+
+**4. Configurar Google Sign-In (Android)**
+
+Reemplaza el `google-services.json` en la raíz del proyecto con el archivo descargado de tu consola de Firebase.
+
+Actualiza también el `webClientId` en `LoginScreen.js`:
+
+```js
+GoogleSignin.configure({
+  webClientId: "TU_WEB_CLIENT_ID",
+});
+```
+
+**5. Iniciar la aplicación**
+
+```bash
+npx expo start
+```
+
+Desde la terminal podrás abrir la app en:
+
+- 📱 **Expo Go** (escanea el QR)
+- 🤖 **Android** — presiona `a`
+- 🍎 **iOS** — presiona `i`
+- 🌐 **Web** — presiona `w`
+
+Para ejecutar en dispositivo/emulador nativo:
+
+```bash
+npx expo run:android
+# o
+npx expo run:ios
+```
+
+---
+
+## 📱 Uso
+
+1. **Registro / Inicio de sesión** — Crea una cuenta con correo, o inicia sesión con Google o Facebook.
+2. **Explorar eventos** — La pantalla principal muestra todos los eventos de la comunidad en tiempo real.
+3. **Ver detalle** — Toca cualquier tarjeta para ver la información completa y confirmar tu asistencia.
+4. **Crear un evento** — Presiona el botón flotante `+` para llenar el formulario con título, descripción, fecha y ubicación.
+5. **Gestionar tus eventos** — Si eres el creador de un evento, podrás editarlo ✏️ o eliminarlo 🗑️ directamente desde la lista o el detalle.
+6. **Notificaciones** — El ícono 🔔 te avisará si tienes eventos confirmados para hoy o mañana.
+7. **Perfil** — Accede al ícono 👤 para ver tu información y cerrar sesión de forma segura.
+
+---
+
+## 👥 Autores
+
+Este proyecto fue desarrollado como parte de un trabajo académico por:
+
+| Nombre | Carné |
+|---|---|
+| Jonathan Alexander Alberto | AC200739 |
+| Christian Geovanni Centeno | CS241743 |
+| José Alexander Montoya | MQ252529 |
+| Gabriel Quintanilla Rodríguez | QR230082 |
+
+---
+
+## 📄 Licencia
 
 [![Licencia de Creative Commons](https://i.creativecommons.org/l/by-nc/4.0/88x31.png)](http://creativecommons.org/licenses/by-nc/4.0/)
 
 Este proyecto se distribuye bajo una [Licencia Creative Commons Atribución-NoComercial 4.0 Internacional (CC BY-NC 4.0)](http://creativecommons.org/licenses/by-nc/4.0/).
 
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+Puedes compartir y adaptar el material siempre que des crédito a los autores y no lo uses con fines comerciales.
