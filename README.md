@@ -22,6 +22,7 @@
 - [Estructura del Proyecto](#-estructura-del-proyecto)
 - [Instalación y Configuración](#-instalación-y-configuración)
 - [Uso](#-uso)
+- [Documentación](#-documentación)
 - [Autores](#-autores)
 - [Licencia](#-licencia)
 
@@ -181,6 +182,14 @@ npx expo run:ios
 5. **Gestionar tus eventos** — Si eres el creador de un evento, podrás editarlo ✏️ o eliminarlo 🗑️ directamente desde la lista o el detalle.
 6. **Notificaciones** — El ícono 🔔 te avisará si tienes eventos confirmados para hoy o mañana.
 7. **Perfil** — Accede al ícono 👤 para ver tu información y cerrar sesión de forma segura.
+
+---
+
+## 📄 Documentación
+
+El siguiente documento PDF contiene el informe técnico completo del proyecto, incluyendo análisis, diseño, arquitectura y conclusiones:
+
+📎 [**DPS_Proyecto2_ReactNative_.pdf**](./DPS_Proyecto2_ReactNative_.pdf)
 
 ---
 
