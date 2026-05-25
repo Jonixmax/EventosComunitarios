@@ -63,6 +63,11 @@
 
 ---
 
+## 🎨 Diseño UX/UI (Mockups)
+* [🔗 Ver Prototipo Interactivo en Figma](https://www.figma.com/design/BvSfsUnUEJ9fvu4mfBEJOo/DPS.eventoscomunitarios?node-id=0-1&m=dev&t=qNnD3PMj81ENrh2J-1)
+
+---
+
 ## 📁 Estructura del Proyecto
 
 ```
